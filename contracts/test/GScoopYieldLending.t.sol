@@ -94,8 +94,8 @@ contract GScoopYieldLendingTest is Test {
 
         // Bob's debt is now 0!
         assertEq(vault.activeDebt(bob), 0);
-        // Reserve fund received 51 USDC garnished
-        assertEq(vault.reserveFund(), 51 * 1e18);
+        // Reserve fund received 51 USDC garnished on top of 100 initial seed
+        assertEq(vault.reserveFund(), 151 * 1e18);
     }
 
     function testManualEarlyLoanRepayment() public {
@@ -108,7 +108,7 @@ contract GScoopYieldLendingTest is Test {
         vault.repayLoan{value: 51 * 1e18}();
 
         assertEq(vault.activeDebt(bob), 0);
-        assertEq(vault.reserveFund(), 51 * 1e18);
+        assertEq(vault.reserveFund(), 151 * 1e18);
     }
 
     function testTurnBiddingAuctionWithDividends() public {
@@ -186,5 +186,87 @@ contract GScoopYieldLendingTest is Test {
         // Since members > 15, the 20 USDC discount was added to reserveFund in O(1) gas!
         assertEq(largeVault.reserveFund(), 20 * 1e18);
         assertEq(largeVault.currentCycle(), 1);
+    }
+
+    function testAdvancePreFunding() public {
+        // Alice deposits 150 USDC (50 for cycle 0, 100 goes into advanceBalance)
+        vm.prank(alice);
+        vault.deposit{value: 150 * 1e18}();
+
+        assertEq(vault.advanceBalance(alice), 100 * 1e18);
+        assertTrue(vault.hasDeposited(0, alice));
+
+        // Complete cycle 0
+        vm.prank(bob);
+        vault.deposit{value: CONTRIBUTION}();
+        vm.prank(charlie);
+        vault.deposit{value: CONTRIBUTION}();
+
+        assertEq(vault.currentCycle(), 1);
+
+        // In cycle 1, Alice deposits with 0 msg.value using her advance balance
+        vm.prank(alice);
+        vault.deposit{value: 0}();
+
+        assertTrue(vault.hasDeposited(1, alice));
+        assertEq(vault.advanceBalance(alice), 50 * 1e18); // 100 - 50 = 50 USDC remaining
+    }
+
+    function testVoluntaryBoosterSavings() public {
+        // Alice parks 200 USDC extra into booster savings
+        vm.prank(alice);
+        vault.depositBoosterSavings{value: 200 * 1e18}();
+
+        assertEq(vault.boosterSavings(alice), 200 * 1e18);
+        assertEq(vault.totalBoosterSavings(), 200 * 1e18);
+
+        // Alice withdraws 50 USDC
+        uint256 balBefore = alice.balance;
+        vm.prank(alice);
+        vault.withdrawBoosterSavings(50 * 1e18);
+
+        assertEq(alice.balance, balBefore + 50 * 1e18);
+        assertEq(vault.boosterSavings(alice), 150 * 1e18);
+    }
+
+    function testMultiShareMembership() public {
+        // Create an open 10-member pool
+        address multiVaultAddr = factory.createCoop("MultiShare Pool", CONTRIBUTION, DURATION, 10);
+        GScoopVault multiVault = GScoopVault(payable(multiVaultAddr));
+
+        // Alice joins and buys 2 additional shares (total 3 shares)
+        vm.prank(alice);
+        multiVault.joinPool();
+        assertEq(multiVault.memberShares(alice), 1);
+
+        vm.prank(alice);
+        multiVault.buyShares(2);
+
+        assertEq(multiVault.memberShares(alice), 3);
+        assertEq(multiVault.getMemberCount(), 3); // 3 slots in queue for Alice!
+    }
+
+    function testPerpetualSeasonsAndPatronageDividends() public {
+        // Reserve has 100 USDC seeded in setUp()
+        assertEq(vault.reserveFund(), 100 * 1e18);
+
+        // Season calculation
+        assertEq(vault.getCurrentSeason(), 1);
+        assertEq(vault.getCycleInSeason(), 1);
+
+        // Distribute 60 USDC of surplus reserve as patronage dividends
+        // 3 members: Alice, Bob, Charlie -> 20 USDC each!
+        uint256 aliceBalBefore = alice.balance;
+        uint256 bobBalBefore = bob.balance;
+        uint256 charlieBalBefore = charlie.balance;
+
+        address creator = vault.creator();
+        vm.prank(creator);
+        vault.distributePatronageDividends(60 * 1e18);
+
+        assertEq(alice.balance, aliceBalBefore + 20 * 1e18);
+        assertEq(bob.balance, bobBalBefore + 20 * 1e18);
+        assertEq(charlie.balance, charlieBalBefore + 20 * 1e18);
+        assertEq(vault.reserveFund(), 40 * 1e18);
     }
 }

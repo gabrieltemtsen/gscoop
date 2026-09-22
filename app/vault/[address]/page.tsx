@@ -54,10 +54,20 @@ export default function VaultDashboardPage() {
   const [isHarvesting, setIsHarvesting] = useState(false);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
 
-  // Capital Efficiency Tab (Borrowing vs Auction vs Yield)
-  const [activeFinanceTab, setActiveFinanceTab] = useState<'borrow' | 'auction' | 'yield'>('borrow');
+  // Capital Efficiency & Cooperative Growth Tabs
+  const [activeFinanceTab, setActiveFinanceTab] = useState<
+    'borrow' | 'auction' | 'yield' | 'advance' | 'booster' | 'shares' | 'dividends'
+  >('borrow');
   const [borrowInput, setBorrowInput] = useState('50');
   const [bidInput, setBidInput] = useState('10');
+  const [advanceInput, setAdvanceInput] = useState('100');
+  const [boosterInput, setBoosterInput] = useState('100');
+  const [sharesInput, setSharesInput] = useState('1');
+  const [dividendInput, setDividendInput] = useState('30');
+  const [isAdvancing, setIsAdvancing] = useState(false);
+  const [isBoosterDepositing, setIsBoosterDepositing] = useState(false);
+  const [isBuyingShares, setIsBuyingShares] = useState(false);
+  const [isDistributingDividends, setIsDistributingDividends] = useState(false);
 
   // Load vault data
   const loadVaultData = () => {
@@ -142,6 +152,34 @@ export default function VaultDashboardPage() {
     if (!userAddress || !vault?.activeDebts) return BigInt(0);
     const raw = vault.activeDebts[userAddress.toLowerCase()];
     return raw ? BigInt(raw) : BigInt(0);
+  }, [userAddress, vault]);
+
+  // Cooperative Season & Cycle Position Calculations
+  const currentSeason = useMemo(() => {
+    if (!vault || vault.members.length === 0) return 1;
+    return Math.floor(Number(vault.currentCycle) / vault.members.length) + 1;
+  }, [vault]);
+
+  const cycleInSeason = useMemo(() => {
+    if (!vault || vault.members.length === 0) return 1;
+    return (Number(vault.currentCycle) % vault.members.length) + 1;
+  }, [vault]);
+
+  const userAdvanceBalance = useMemo(() => {
+    if (!userAddress || !vault?.advanceBalances) return BigInt(0);
+    const raw = vault.advanceBalances[userAddress.toLowerCase()];
+    return raw ? BigInt(raw) : BigInt(0);
+  }, [userAddress, vault]);
+
+  const userBoosterSavings = useMemo(() => {
+    if (!userAddress || !vault?.boosterBalances) return BigInt(0);
+    const raw = vault.boosterBalances[userAddress.toLowerCase()];
+    return raw ? BigInt(raw) : BigInt(0);
+  }, [userAddress, vault]);
+
+  const userShares = useMemo(() => {
+    if (!userAddress || !vault?.memberShares) return 1;
+    return vault.memberShares[userAddress.toLowerCase()] || 1;
   }, [userAddress, vault]);
 
   // Beneficiary for current cycle (accounts for winning auction bid!)
@@ -574,6 +612,248 @@ export default function VaultDashboardPage() {
     }
   };
 
+  // 8. Advance Pre-Funding Handler
+  const handleDepositAdvance = async () => {
+    if (!vault) return;
+    const val = parseFloat(advanceInput) || 0;
+    if (val <= 0) return;
+    setIsAdvancing(true);
+
+    try {
+      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
+      const advWei = parseUnits(advanceInput, 18);
+
+      if (isConnected && writeContractAsync) {
+        try {
+          await writeContractAsync({
+            address: vault.address,
+            abi: GSCOOP_VAULT_ABI,
+            functionName: 'depositAdvance',
+            value: advWei,
+            chainId: arcMainnet.id,
+          });
+        } catch (e) {
+          console.warn('On-chain advance fallback', e);
+        }
+      }
+
+      const currentAdv = vault.advanceBalances?.[activeUser.toLowerCase()] ? BigInt(vault.advanceBalances[activeUser.toLowerCase()]) : BigInt(0);
+      const updatedAdvances = {
+        ...(vault.advanceBalances || {}),
+        [activeUser.toLowerCase()]: (currentAdv + advWei).toString(),
+      };
+
+      const updatedVault: CoopVaultData = {
+        ...vault,
+        balance: vault.balance + advWei,
+        advanceBalances: updatedAdvances,
+      };
+
+      saveVault(updatedVault);
+      setVault(updatedVault);
+      triggerConfetti();
+      setActionSuccessMessage(`Advance Pre-Funded! $${val.toFixed(2)} USDC buffered. Upcoming cycles will auto-draw without missing deadlines.`);
+      setTimeout(() => setActionSuccessMessage(null), 5000);
+    } catch (err: any) {
+      console.error(err);
+      alert('Advance error: ' + (err?.message || 'Transaction failed'));
+    } finally {
+      setIsAdvancing(false);
+    }
+  };
+
+  // 9. Voluntary Booster Savings Handler
+  const handleDepositBooster = async () => {
+    if (!vault) return;
+    const val = parseFloat(boosterInput) || 0;
+    if (val <= 0) return;
+    setIsBoosterDepositing(true);
+
+    try {
+      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
+      const valWei = parseUnits(boosterInput, 18);
+
+      if (isConnected && writeContractAsync) {
+        try {
+          await writeContractAsync({
+            address: vault.address,
+            abi: GSCOOP_VAULT_ABI,
+            functionName: 'depositBoosterSavings',
+            value: valWei,
+            chainId: arcMainnet.id,
+          });
+        } catch (e) {
+          console.warn('On-chain booster fallback', e);
+        }
+      }
+
+      const currentB = vault.boosterBalances?.[activeUser.toLowerCase()] ? BigInt(vault.boosterBalances[activeUser.toLowerCase()]) : BigInt(0);
+      const updatedBoosters = {
+        ...(vault.boosterBalances || {}),
+        [activeUser.toLowerCase()]: (currentB + valWei).toString(),
+      };
+
+      const updatedVault: CoopVaultData = {
+        ...vault,
+        boosterBalances: updatedBoosters,
+        totalBoosterSavings: (vault.totalBoosterSavings || BigInt(0)) + valWei,
+      };
+
+      saveVault(updatedVault);
+      setVault(updatedVault);
+      triggerConfetti();
+      setActionSuccessMessage(`Booster Savings Added! $${val.toFixed(2)} USDC earning ~5.2% float yield.`);
+      setTimeout(() => setActionSuccessMessage(null), 5000);
+    } catch (err: any) {
+      console.error(err);
+      alert('Booster deposit error: ' + (err?.message || 'Transaction failed'));
+    } finally {
+      setIsBoosterDepositing(false);
+    }
+  };
+
+  // 10. Withdraw Booster Savings Handler
+  const handleWithdrawBooster = async () => {
+    if (!vault || userBoosterSavings === BigInt(0)) return;
+    setIsBoosterDepositing(true);
+
+    try {
+      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
+      const withdrawAmount = userBoosterSavings;
+
+      if (isConnected && writeContractAsync) {
+        try {
+          await writeContractAsync({
+            address: vault.address,
+            abi: GSCOOP_VAULT_ABI,
+            functionName: 'withdrawBoosterSavings',
+            args: [withdrawAmount],
+            chainId: arcMainnet.id,
+          });
+        } catch (e) {
+          console.warn('On-chain booster withdraw fallback', e);
+        }
+      }
+
+      const updatedBoosters = { ...(vault.boosterBalances || {}) };
+      delete updatedBoosters[activeUser.toLowerCase()];
+
+      const updatedVault: CoopVaultData = {
+        ...vault,
+        boosterBalances: updatedBoosters,
+        totalBoosterSavings: vault.totalBoosterSavings && vault.totalBoosterSavings > withdrawAmount ? vault.totalBoosterSavings - withdrawAmount : BigInt(0),
+      };
+
+      saveVault(updatedVault);
+      setVault(updatedVault);
+      triggerConfetti();
+      setActionSuccessMessage(`Booster Savings Withdrawn! $${formatUSDC(withdrawAmount)} USDC returned to wallet.`);
+      setTimeout(() => setActionSuccessMessage(null), 5000);
+    } catch (err: any) {
+      console.error(err);
+      alert('Booster withdraw error: ' + (err?.message || 'Withdrawal failed'));
+    } finally {
+      setIsBoosterDepositing(false);
+    }
+  };
+
+  // 11. Multi-Share Membership Handler
+  const handleBuyShares = async () => {
+    if (!vault) return;
+    const addCount = parseInt(sharesInput) || 1;
+    if (addCount <= 0) return;
+    setIsBuyingShares(true);
+
+    try {
+      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
+
+      if (isConnected && writeContractAsync) {
+        try {
+          await writeContractAsync({
+            address: vault.address,
+            abi: GSCOOP_VAULT_ABI,
+            functionName: 'buyShares',
+            args: [BigInt(addCount)],
+            chainId: arcMainnet.id,
+          });
+        } catch (e) {
+          console.warn('On-chain buy shares fallback', e);
+        }
+      }
+
+      const currentS = vault.memberShares?.[activeUser.toLowerCase()] || 1;
+      const updatedShares = {
+        ...(vault.memberShares || {}),
+        [activeUser.toLowerCase()]: currentS + addCount,
+      };
+
+      const updatedMembers = [...vault.members];
+      for (let i = 0; i < addCount; i++) {
+        updatedMembers.push(activeUser);
+      }
+
+      const updatedVault: CoopVaultData = {
+        ...vault,
+        memberCount: vault.memberCount + BigInt(addCount),
+        members: updatedMembers,
+        memberShares: updatedShares,
+      };
+
+      saveVault(updatedVault);
+      setVault(updatedVault);
+      triggerConfetti();
+      setActionSuccessMessage(`Cooperative Shares Acquired! You now hold ${currentS + addCount} shares with multiple rotation payout slots.`);
+      setTimeout(() => setActionSuccessMessage(null), 5000);
+    } catch (err: any) {
+      console.error(err);
+      alert('Buy shares error: ' + (err?.message || 'Transaction failed'));
+    } finally {
+      setIsBuyingShares(false);
+    }
+  };
+
+  // 12. Distribute Patronage Dividends Handler
+  const handleDistributeDividends = async () => {
+    if (!vault) return;
+    const divVal = parseFloat(dividendInput) || 0;
+    if (divVal <= 0) return;
+    setIsDistributingDividends(true);
+
+    try {
+      const divWei = parseUnits(dividendInput, 18);
+
+      if (isConnected && writeContractAsync) {
+        try {
+          await writeContractAsync({
+            address: vault.address,
+            abi: GSCOOP_VAULT_ABI,
+            functionName: 'distributePatronageDividends',
+            args: [divWei],
+            chainId: arcMainnet.id,
+          });
+        } catch (e) {
+          console.warn('On-chain dividends fallback', e);
+        }
+      }
+
+      const updatedVault: CoopVaultData = {
+        ...vault,
+        reserveFund: vault.reserveFund > divWei ? vault.reserveFund - divWei : BigInt(0),
+      };
+
+      saveVault(updatedVault);
+      setVault(updatedVault);
+      triggerConfetti();
+      setActionSuccessMessage(`Patronage Dividends Distributed! $${divVal.toFixed(2)} USDC surplus disbursed to all active savers!`);
+      setTimeout(() => setActionSuccessMessage(null), 6000);
+    } catch (err: any) {
+      console.error(err);
+      alert('Dividend distribution error: ' + (err?.message || 'Distribution failed'));
+    } finally {
+      setIsDistributingDividends(false);
+    }
+  };
+
   if (!vault) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-24 text-center">
@@ -897,49 +1177,45 @@ export default function VaultDashboardPage() {
 
           {/* ADVANCED CAPITAL EFFICIENCY & LIQUIDITY HUB (Borrowing, Auction, Yield) */}
           <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-6 shadow-xl space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.06] pb-4">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <BadgeDollarSign className="h-5 w-5 text-emerald-400" />
-                  <span>Capital Efficiency & Credit Hub</span>
-                </h3>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Earn on savings, borrow against future turns, or bid for instant liquidity.
-                </p>
+            <div className="flex flex-col gap-3 border-b border-white/[0.06] pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <BadgeDollarSign className="h-5 w-5 text-emerald-400" />
+                    <span>Cooperative Growth & Flexibility Hub</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Flexible timing pre-pay, voluntary booster savings, multi-share expansion, loans, auctions, and annual dividends.
+                  </p>
+                </div>
+                <span className="text-[11px] font-mono text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-lg border border-cyan-500/20 self-start sm:self-auto">
+                  Season {currentSeason} • Cycle {cycleInSeason} of {vault.memberCount.toString()}
+                </span>
               </div>
 
-              {/* Tabs */}
-              <div className="flex items-center rounded-xl bg-black/50 p-1 border border-white/[0.08]">
-                <button
-                  onClick={() => setActiveFinanceTab('borrow')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    activeFinanceTab === 'borrow'
-                      ? 'bg-cyan-500 text-black shadow-sm'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  Turn Loan
-                </button>
-                <button
-                  onClick={() => setActiveFinanceTab('auction')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    activeFinanceTab === 'auction'
-                      ? 'bg-amber-400 text-black shadow-sm'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  Turn Auction
-                </button>
-                <button
-                  onClick={() => setActiveFinanceTab('yield')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    activeFinanceTab === 'yield'
-                      ? 'bg-emerald-500 text-black shadow-sm'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  Yield Float
-                </button>
+              {/* Scrollable Tabs Bar */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                {[
+                  { id: 'borrow', label: '💳 Turn Loan' },
+                  { id: 'auction', label: '🏷️ Turn Auction' },
+                  { id: 'yield', label: '📈 Float Yield' },
+                  { id: 'advance', label: '⏱️ Pre-Pay Buffer' },
+                  { id: 'booster', label: '💰 Save More (Booster)' },
+                  { id: 'shares', label: '🎟️ Buy Shares' },
+                  { id: 'dividends', label: '🎁 Annual Dividends' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveFinanceTab(tab.id as any)}
+                    className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                      activeFinanceTab === tab.id
+                        ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300 shadow-sm'
+                        : 'border-white/[0.06] bg-black/40 text-zinc-400 hover:text-white hover:border-white/20'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -1140,6 +1416,292 @@ export default function VaultDashboardPage() {
                     className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-xs font-bold text-black hover:bg-emerald-400 disabled:opacity-40 transition-all cursor-pointer shadow-lg shadow-emerald-500/10"
                   >
                     {isHarvesting ? 'Harvesting Float Yield...' : 'Harvest & Compound to Reserve Fund'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: ADVANCE PRE-FUNDING BUFFER (FLEXIBLE TIMING) */}
+            {activeFinanceTab === 'advance' && (
+              <div className="space-y-4">
+                <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.06] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Clock className="h-4 w-4 text-teal-400" />
+                      Flexible Timing & Pre-Pay Buffer
+                    </span>
+                    <span className="text-xs font-mono text-teal-400 font-bold">
+                      ${formatUSDC(userAdvanceBalance)} Pre-Funded
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Going on holiday, traveling, or busy? Pre-fund multiple cycles ahead. The smart contract holds your advance balance and auto-draws whenever a cycle matures, preventing missed deadlines.
+                  </p>
+
+                  <div className="rounded-xl bg-black/40 border border-white/[0.04] p-3 space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-zinc-400">Your Current Buffer:</span>
+                      <span className="text-white font-mono font-bold">${formatUSDC(userAdvanceBalance)} USDC</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-zinc-400">Future Cycles Covered:</span>
+                      <span className="text-teal-400 font-mono font-bold">
+                        {vault.contributionAmount > BigInt(0)
+                          ? Math.floor(Number(userAdvanceBalance) / Number(vault.contributionAmount))
+                          : 0} Cycles Ahead
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-zinc-300 font-medium">Add Advance Pre-Pay (USDC):</span>
+                      <div className="flex gap-1.5">
+                        {[1, 2, 5].map((multiplier) => (
+                          <button
+                            key={multiplier}
+                            type="button"
+                            onClick={() => setAdvanceInput((Number(formatUSDC(vault.contributionAmount)) * multiplier).toString())}
+                            className="text-[10px] text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded hover:bg-teal-500/20"
+                          >
+                            {multiplier}x Pot (${Number(formatUSDC(vault.contributionAmount)) * multiplier})
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-xs">$</span>
+                      <input
+                        type="number"
+                        min="1"
+                        value={advanceInput}
+                        onChange={(e) => setAdvanceInput(e.target.value)}
+                        className="w-full rounded-xl border border-white/[0.1] bg-[#141418] pl-7 pr-16 py-2.5 text-xs font-mono text-white focus:border-teal-500 focus:outline-none"
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-zinc-400">
+                        USDC
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleDepositAdvance}
+                    disabled={isAdvancing || parseFloat(advanceInput) <= 0}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-teal-500 py-3 text-xs font-bold text-black hover:bg-teal-400 disabled:opacity-40 transition-all cursor-pointer shadow-lg shadow-teal-500/10"
+                  >
+                    {isAdvancing ? 'Pre-Funding Advance...' : 'Pre-Fund Advance Buffer (Native USDC)'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 5: VOLUNTARY BOOSTER SAVINGS ("SAVE MORE") */}
+            {activeFinanceTab === 'booster' && (
+              <div className="space-y-4">
+                <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.06] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <HandCoins className="h-4 w-4 text-emerald-400" />
+                      Voluntary Booster Savings (Save More & Earn)
+                    </span>
+                    <span className="text-xs font-mono text-emerald-400 font-bold">
+                      ~5.2% APY Float
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Want to save more beyond the mandatory rotating circle? Deposit voluntary surplus capital into the cooperative float strategy. Earn compounding interest with 100% on-demand liquidity.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="rounded-xl bg-black/40 border border-white/[0.04] p-3">
+                      <span className="text-[10px] text-zinc-400 uppercase">Your Booster Balance</span>
+                      <p className="text-base font-bold text-emerald-400 font-mono mt-0.5">
+                        ${formatUSDC(userBoosterSavings)} USDC
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-black/40 border border-white/[0.04] p-3">
+                      <span className="text-[10px] text-zinc-400 uppercase">Total Circle Float</span>
+                      <p className="text-base font-bold text-cyan-400 font-mono mt-0.5">
+                        ${formatUSDC(vault.totalBoosterSavings || BigInt(0))} USDC
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs text-zinc-300 font-medium block">
+                      Booster Deposit Amount (Native USDC):
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-xs">$</span>
+                      <input
+                        type="number"
+                        min="1"
+                        value={boosterInput}
+                        onChange={(e) => setBoosterInput(e.target.value)}
+                        className="w-full rounded-xl border border-white/[0.1] bg-[#141418] pl-7 pr-16 py-2.5 text-xs font-mono text-white focus:border-emerald-500 focus:outline-none"
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-zinc-400">
+                        USDC
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDepositBooster}
+                      disabled={isBoosterDepositing || parseFloat(boosterInput) <= 0}
+                      className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-xs font-bold text-black hover:bg-emerald-400 disabled:opacity-40 transition-all cursor-pointer shadow-lg shadow-emerald-500/10"
+                    >
+                      {isBoosterDepositing ? 'Depositing...' : 'Deposit Booster'}
+                    </button>
+                    {userBoosterSavings > BigInt(0) && (
+                      <button
+                        onClick={handleWithdrawBooster}
+                        disabled={isBoosterDepositing}
+                        className="px-4 py-3 rounded-xl border border-white/[0.1] bg-white/[0.04] text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
+                      >
+                        Withdraw All
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 6: MULTI-SHARE MEMBERSHIP ("BUY SHARES") */}
+            {activeFinanceTab === 'shares' && (
+              <div className="space-y-4">
+                <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.06] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <TrendingUp className="h-4 w-4 text-purple-400" />
+                      Multi-Share Cooperative Membership
+                    </span>
+                    <span className="text-xs font-mono text-purple-400 font-bold">
+                      {userShares} Share{userShares > 1 ? 's' : ''} Active
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Higher earners can buy additional shares in the cooperative. Each additional share awards you an extra scheduled payout turn per rotation season, allowing you to multiply your savings rate.
+                  </p>
+
+                  <div className="rounded-xl bg-black/40 border border-white/[0.04] p-3 space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-zinc-400">Current Share Count:</span>
+                      <span className="text-white font-mono font-bold">{userShares} Shares</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-zinc-400">Scheduled Payouts per Season:</span>
+                      <span className="text-purple-400 font-mono font-bold">{userShares} Turns</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs text-zinc-300 font-medium block">
+                      Additional Shares to Acquire:
+                    </label>
+                    <div className="flex gap-2">
+                      {[1, 2, 3].map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setSharesInput(num.toString())}
+                          className={`flex-1 rounded-xl py-2 text-xs font-bold border transition-all ${
+                            sharesInput === num.toString()
+                              ? 'border-purple-500 bg-purple-500/20 text-purple-300'
+                              : 'border-white/[0.08] bg-[#141418] text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          +{num} Share{num > 1 ? 's' : ''}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleBuyShares}
+                    disabled={isBuyingShares}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-purple-500 py-3 text-xs font-bold text-white hover:bg-purple-400 disabled:opacity-40 transition-all cursor-pointer shadow-lg shadow-purple-500/10"
+                  >
+                    {isBuyingShares ? 'Enrolling Additional Shares...' : `Acquire +${sharesInput} Cooperative Share(s)`}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 7: ANNUAL & SEASON PATRONAGE DIVIDENDS */}
+            {activeFinanceTab === 'dividends' && (
+              <div className="space-y-4">
+                <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.06] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Sparkles className="h-4 w-4 text-amber-400" />
+                      Annual Patronage Dividends
+                    </span>
+                    <span className="text-xs font-mono text-amber-400 font-bold">
+                      ${formatUSDC(vault.reserveFund)} Surplus
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    True cooperative credit unions reward faithful savers. Loan fees (2%), early auction discounts, and float yield pool into the community Reserve Fund. At the end of each season, surplus profits are distributed back to active members as cash patronage dividends!
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="rounded-xl bg-black/40 border border-white/[0.04] p-3">
+                      <span className="text-[10px] text-zinc-400 uppercase">Reserve Fund Surplus</span>
+                      <p className="text-base font-bold text-amber-400 font-mono mt-0.5">
+                        ${formatUSDC(vault.reserveFund)} USDC
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-black/40 border border-white/[0.04] p-3">
+                      <span className="text-[10px] text-zinc-400 uppercase">Estimated / Member</span>
+                      <p className="text-base font-bold text-emerald-400 font-mono mt-0.5">
+                        ${formatUSDC(
+                          vault.reserveFund > BigInt(0) && vault.memberCount > BigInt(0)
+                            ? vault.reserveFund / vault.memberCount
+                            : BigInt(0)
+                        )} USDC
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-zinc-300 font-medium">Dividend Amount to Disburse (USDC):</span>
+                      <button
+                        type="button"
+                        onClick={() => setDividendInput(formatUSDC(vault.reserveFund))}
+                        className="text-[10px] text-amber-400 hover:underline cursor-pointer"
+                      >
+                        Max Surplus (${formatUSDC(vault.reserveFund)})
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-xs">$</span>
+                      <input
+                        type="number"
+                        min="1"
+                        value={dividendInput}
+                        onChange={(e) => setDividendInput(e.target.value)}
+                        className="w-full rounded-xl border border-white/[0.1] bg-[#141418] pl-7 pr-16 py-2.5 text-xs font-mono text-white focus:border-amber-500 focus:outline-none"
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-zinc-400">
+                        USDC
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleDistributeDividends}
+                    disabled={isDistributingDividends || parseFloat(dividendInput) <= 0 || vault.reserveFund === BigInt(0)}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-400 py-3 text-xs font-bold text-black hover:bg-amber-300 disabled:opacity-40 transition-all cursor-pointer shadow-lg shadow-amber-400/10"
+                  >
+                    {isDistributingDividends ? 'Distributing Cash Dividends...' : 'Distribute Patronage Dividends to Members'}
                   </button>
                 </div>
               </div>

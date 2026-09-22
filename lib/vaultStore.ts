@@ -28,6 +28,12 @@ export interface CoopVaultData {
   reserveFund: bigint;
   currentHighestBid?: DiscountBidData | null;
   activeDebts?: Record<string, string>; // member address -> debt in stringified bigint
+  // Flexible Timing & Multi-Share Cooperative Extensions
+  season?: number;
+  advanceBalances?: Record<string, string>; // member address -> advance balance in stringified bigint
+  boosterBalances?: Record<string, string>; // member address -> booster savings in stringified bigint
+  memberShares?: Record<string, number>;    // member address -> share count
+  totalBoosterSavings?: bigint;
 }
 
 const DEFAULT_VAULTS: CoopVaultData[] = [

@@ -49,6 +49,16 @@ contract GScoopVault is ReentrancyGuard, Pausable {
     mapping(address => uint256) public activeDebt;
     mapping(address => uint256) public totalLifetimeBorrowed;
 
+    // Flexible Timing & Advance Pre-Funding Buffer
+    mapping(address => uint256) public advanceBalance;
+
+    // Voluntary Booster Float Savings ("Save More")
+    mapping(address => uint256) public boosterSavings;
+    uint256 public totalBoosterSavings;
+
+    // Multi-Share Cooperative Membership ("Buy Shares")
+    mapping(address => uint256) public memberShares;
+
     // Discount Bidding Auction for Early Turn Liquidity
     struct DiscountBid {
         address bidder;
@@ -66,6 +76,12 @@ contract GScoopVault is ReentrancyGuard, Pausable {
     event LoanGarnished(address indexed borrower, uint256 garnishedAmount, uint256 netPayoutReceived);
     event TurnBidPlaced(address indexed bidder, uint256 discountAmount);
     event BidDividendDistributed(address indexed recipient, uint256 dividendAmount);
+    event AdvanceFunded(address indexed member, uint256 amount, uint256 totalAdvance);
+    event AdvanceDrawn(address indexed member, uint256 indexed cycle, uint256 amount);
+    event BoosterSavingsDeposited(address indexed member, uint256 amount, uint256 totalBooster);
+    event BoosterSavingsWithdrawn(address indexed member, uint256 amount, uint256 remainingBooster);
+    event SharesPurchased(address indexed member, uint256 additionalShares, uint256 newTotalShares);
+    event PatronageDividendsDistributed(uint256 totalDistributed, uint256 dividendPerSlot);
 
     // Custom errors for gas efficiency
     error NotAuthorized();
@@ -82,6 +98,9 @@ contract GScoopVault is ReentrancyGuard, Pausable {
     error InsufficientReserveLiquidity(uint256 requested, uint256 available);
     error BidTooLow(uint256 submitted, uint256 currentHighest);
     error NoActiveDebt();
+    error InsufficientAdvanceBalance(uint256 available, uint256 required);
+    error InsufficientBoosterBalance(uint256 available, uint256 requested);
+    error InsufficientReserveForDividends(uint256 requested, uint256 available);
 
     modifier onlyAdmin() {
         if (msg.sender != creator && msg.sender != factory) revert NotAuthorized();
@@ -119,6 +138,7 @@ contract GScoopVault is ReentrancyGuard, Pausable {
         memberIndex[msg.sender] = memberQueue.length;
         memberQueue.push(msg.sender);
         isMember[msg.sender] = true;
+        memberShares[msg.sender] = 1;
 
         emit MemberJoined(msg.sender, memberQueue.length - 1);
     }
@@ -126,12 +146,9 @@ contract GScoopVault is ReentrancyGuard, Pausable {
     /**
      * @notice Deposit the required cycle contribution in native USDC.
      *         On Arc Mainnet, USDC is native gas & native currency (msg.value).
+     *         Supports flexible advance pre-funding: excess deposit is buffered in advanceBalance!
      */
     function deposit() external payable nonReentrant whenNotPaused {
-        if (msg.value != contributionAmount) {
-            revert IncorrectContributionAmount(msg.value, contributionAmount);
-        }
-
         // Auto-join member if not already joined
         if (!isMember[msg.sender]) {
             joinPool();
@@ -141,14 +158,37 @@ contract GScoopVault is ReentrancyGuard, Pausable {
             revert DuplicateDepositForCycle(currentCycle, msg.sender);
         }
 
-        hasDeposited[currentCycle][msg.sender] = true;
-        cycleDepositCount[currentCycle]++;
+        uint256 cycleCost = contributionAmount;
 
-        emit DepositReceived(msg.sender, currentCycle, msg.value);
+        // Flexible timing handling:
+        // Case 1: Member sent exact or more funds
+        if (msg.value >= cycleCost) {
+            hasDeposited[currentCycle][msg.sender] = true;
+            cycleDepositCount[currentCycle]++;
+
+            uint256 excess = msg.value - cycleCost;
+            if (excess > 0) {
+                advanceBalance[msg.sender] += excess;
+                emit AdvanceFunded(msg.sender, excess, advanceBalance[msg.sender]);
+            }
+            emit DepositReceived(msg.sender, currentCycle, cycleCost);
+        } 
+        // Case 2: Member sent partial/0 funds, but has sufficient advance buffer
+        else if (msg.value + advanceBalance[msg.sender] >= cycleCost) {
+            uint256 neededFromAdvance = cycleCost - msg.value;
+            advanceBalance[msg.sender] -= neededFromAdvance;
+            hasDeposited[currentCycle][msg.sender] = true;
+            cycleDepositCount[currentCycle]++;
+
+            emit AdvanceDrawn(msg.sender, currentCycle, neededFromAdvance);
+            emit DepositReceived(msg.sender, currentCycle, cycleCost);
+        } else {
+            revert IncorrectContributionAmount(msg.value + advanceBalance[msg.sender], cycleCost);
+        }
 
         // Optional: Route idle float to yield strategy if enabled
         if (yieldEnabled && yieldStrategy != address(0)) {
-            _depositToYieldStrategy(msg.value);
+            _depositToYieldStrategy(cycleCost);
         }
 
         // Instant settlement trigger if all members have deposited
@@ -419,6 +459,144 @@ contract GScoopVault is ReentrancyGuard, Pausable {
     }
 
     // =========================================================================
+    // FLEXIBLE TIMING & ADVANCE PRE-FUNDING BUFFER
+    // =========================================================================
+
+    /**
+     * @notice Fund an advance balance in native USDC.
+     *         Enables savers to pre-pay multiple cycles ahead so they never miss a deadline.
+     */
+    function depositAdvance() external payable nonReentrant whenNotPaused {
+        require(msg.value > 0, "Advance must be > 0");
+        if (!isMember[msg.sender]) {
+            joinPool();
+        }
+        advanceBalance[msg.sender] += msg.value;
+        emit AdvanceFunded(msg.sender, msg.value, advanceBalance[msg.sender]);
+    }
+
+    /**
+     * @notice Settle a member's current cycle contribution using their buffered advance balance.
+     *         Can be invoked by the member or any group participant before or at deadline.
+     */
+    function depositFromAdvanceFor(address member) external nonReentrant whenNotPaused {
+        require(isMember[member], "Not a member");
+        if (hasDeposited[currentCycle][member]) revert DuplicateDepositForCycle(currentCycle, member);
+        if (advanceBalance[member] < contributionAmount) revert InsufficientAdvanceBalance(advanceBalance[member], contributionAmount);
+
+        advanceBalance[member] -= contributionAmount;
+        hasDeposited[currentCycle][member] = true;
+        cycleDepositCount[currentCycle]++;
+
+        emit AdvanceDrawn(member, currentCycle, contributionAmount);
+        emit DepositReceived(member, currentCycle, contributionAmount);
+
+        if (yieldEnabled && yieldStrategy != address(0)) {
+            _depositToYieldStrategy(contributionAmount);
+        }
+
+        if (memberQueue.length > 0 && cycleDepositCount[currentCycle] == memberQueue.length) {
+            _executePayout();
+        }
+    }
+
+    // =========================================================================
+    // MULTI-SHARE MEMBERSHIP ("BUY MORE SHARES")
+    // =========================================================================
+
+    /**
+     * @notice Acquire additional shares in the cooperative pool.
+     *         Each additional share grants an additional scheduled payout turn in the cycle rotation!
+     */
+    function buyShares(uint256 additionalShares) external payable nonReentrant whenNotPaused {
+        require(additionalShares > 0 && additionalShares <= 5, "Shares between 1 and 5");
+        if (!isMember[msg.sender]) {
+            joinPool();
+        }
+        if (maxMembers > 0 && memberQueue.length + additionalShares > maxMembers) {
+            revert MaxMembersReached();
+        }
+
+        memberShares[msg.sender] += additionalShares;
+        for (uint256 i = 0; i < additionalShares; i++) {
+            memberQueue.push(msg.sender);
+        }
+
+        emit SharesPurchased(msg.sender, additionalShares, memberShares[msg.sender]);
+    }
+
+    // =========================================================================
+    // VOLUNTARY BOOSTER SAVINGS ("SAVE MORE")
+    // =========================================================================
+
+    /**
+     * @notice Deposit voluntary flexible savings into the cooperative's float yield strategy.
+     *         Allows members to save beyond the fixed rotating pot and earn compounding float yield.
+     */
+    function depositBoosterSavings() external payable nonReentrant whenNotPaused {
+        require(msg.value > 0, "Amount must be > 0");
+        if (!isMember[msg.sender]) {
+            joinPool();
+        }
+        boosterSavings[msg.sender] += msg.value;
+        totalBoosterSavings += msg.value;
+
+        if (yieldEnabled && yieldStrategy != address(0)) {
+            _depositToYieldStrategy(msg.value);
+        }
+
+        emit BoosterSavingsDeposited(msg.sender, msg.value, boosterSavings[msg.sender]);
+    }
+
+    /**
+     * @notice Withdraw voluntary booster savings on demand.
+     */
+    function withdrawBoosterSavings(uint256 amount) external nonReentrant {
+        require(amount > 0, "Amount must be > 0");
+        if (boosterSavings[msg.sender] < amount) {
+            revert InsufficientBoosterBalance(boosterSavings[msg.sender], amount);
+        }
+
+        boosterSavings[msg.sender] -= amount;
+        totalBoosterSavings -= amount;
+
+        (bool sent, ) = payable(msg.sender).call{value: amount}("");
+        require(sent, "Booster withdrawal failed");
+
+        emit BoosterSavingsWithdrawn(msg.sender, amount, boosterSavings[msg.sender]);
+    }
+
+    // =========================================================================
+    // PERPETUAL SEASONS & PATRONAGE DIVIDENDS
+    // =========================================================================
+
+    /**
+     * @notice Distribute surplus profits (from 2% loan fees, auction discounts, and float yield)
+     *         from the reserveFund back to active cooperative members as an annual or season patronage dividend!
+     */
+    function distributePatronageDividends(uint256 totalDividendAmount) external onlyAdmin nonReentrant {
+        if (memberQueue.length == 0) revert NoMembersInQueue();
+        if (totalDividendAmount > reserveFund) {
+            revert InsufficientReserveForDividends(totalDividendAmount, reserveFund);
+        }
+
+        reserveFund -= totalDividendAmount;
+        uint256 dividendPerSlot = totalDividendAmount / memberQueue.length;
+
+        if (dividendPerSlot > 0) {
+            for (uint256 i = 0; i < memberQueue.length; i++) {
+                address member = memberQueue[i];
+                (bool sent, ) = payable(member).call{value: dividendPerSlot}("");
+                if (!sent) {
+                    advanceBalance[member] += dividendPerSlot;
+                }
+            }
+        }
+
+        emit PatronageDividendsDistributed(totalDividendAmount, dividendPerSlot);
+    }
+
+    // =========================================================================
     // VIEW FUNCTIONS & ADMIN
     // =========================================================================
 
@@ -477,6 +655,37 @@ contract GScoopVault is ReentrancyGuard, Pausable {
         );
     }
 
+    /**
+     * @notice Get current cooperative season (1-indexed).
+     */
+    function getCurrentSeason() external view returns (uint256) {
+        return memberQueue.length > 0 ? (currentCycle / memberQueue.length) + 1 : 1;
+    }
+
+    /**
+     * @notice Get cycle number within the current season (1-indexed).
+     */
+    function getCycleInSeason() external view returns (uint256) {
+        return memberQueue.length > 0 ? (currentCycle % memberQueue.length) + 1 : 1;
+    }
+
+    /**
+     * @notice Get comprehensive personal financial position for a member.
+     */
+    function getMemberFinancials(address member) external view returns (
+        uint256 debt,
+        uint256 advance,
+        uint256 booster,
+        uint256 shares
+    ) {
+        return (
+            activeDebt[member],
+            advanceBalance[member],
+            boosterSavings[member],
+            memberShares[member]
+        );
+    }
+
     // Emergency controls
     function pause() external onlyAdmin {
         _pause();
@@ -488,5 +697,6 @@ contract GScoopVault is ReentrancyGuard, Pausable {
 
     receive() external payable {
         // Accept native USDC transfers (yield redemptions, donations, top-ups)
+        reserveFund += msg.value;
     }
 }

@@ -1,4 +1,4 @@
-// Auto-generated ABI and contract constants for GScoop with Yield & Secure Lending
+// Auto-generated ABI and contract constants for GScoop with Yield, Credit, Flexibility & Dividends
 export const FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_FACTORY_ADDRESS || "0x5C0099413289069d6771F524584285b0b6e16f39") as `0x${string}`;
 
 export const GSCOOP_FACTORY_ABI = [
@@ -305,6 +305,44 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "function",
+    "name": "advanceBalance",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "boosterSavings",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "borrowAgainstTurn",
     "inputs": [
       {
@@ -315,6 +353,19 @@ export const GSCOOP_VAULT_ABI = [
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "buyShares",
+    "inputs": [
+      {
+        "name": "additionalShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
   },
   {
     "type": "function",
@@ -427,6 +478,46 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "function",
+    "name": "depositAdvance",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "depositBoosterSavings",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "depositFromAdvanceFor",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "distributePatronageDividends",
+    "inputs": [
+      {
+        "name": "totalDividendAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "distributePayout",
     "inputs": [],
     "outputs": [],
@@ -460,11 +551,71 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "function",
+    "name": "getCurrentSeason",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCycleInSeason",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getMemberCount",
     "inputs": [],
     "outputs": [
       {
         "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getMemberFinancials",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "debt",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "advance",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "booster",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "shares",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -687,6 +838,25 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "function",
+    "name": "memberShares",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "name",
     "inputs": [],
     "outputs": [
@@ -771,6 +941,19 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "function",
+    "name": "totalBoosterSavings",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "totalLifetimeBorrowed",
     "inputs": [
       {
@@ -810,6 +993,19 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "function",
+    "name": "withdrawBoosterSavings",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "yieldEnabled",
     "inputs": [],
     "outputs": [
@@ -836,6 +1032,56 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "event",
+    "name": "AdvanceDrawn",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "cycle",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AdvanceFunded",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalAdvance",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "BidDividendDistributed",
     "inputs": [
       {
@@ -846,6 +1092,56 @@ export const GSCOOP_VAULT_ABI = [
       },
       {
         "name": "dividendAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BoosterSavingsDeposited",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalBooster",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BoosterSavingsWithdrawn",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "remainingBooster",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -980,6 +1276,25 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "event",
+    "name": "PatronageDividendsDistributed",
+    "inputs": [
+      {
+        "name": "totalDistributed",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "dividendPerSlot",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Paused",
     "inputs": [
       {
@@ -1015,6 +1330,31 @@ export const GSCOOP_VAULT_ABI = [
       },
       {
         "name": "nextDeadline",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SharesPurchased",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "additionalShares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newTotalShares",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1202,6 +1542,54 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "error",
+    "name": "InsufficientAdvanceBalance",
+    "inputs": [
+      {
+        "name": "available",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "required",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InsufficientBoosterBalance",
+    "inputs": [
+      {
+        "name": "available",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "requested",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InsufficientReserveForDividends",
+    "inputs": [
+      {
+        "name": "requested",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "available",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InsufficientReserveLiquidity",
     "inputs": [
       {
@@ -1263,21 +1651,3 @@ export const GSCOOP_VAULT_ABI = [
     "inputs": []
   }
 ] as const;
-
-export interface VaultMetadata {
-  address: `0x${string}`;
-  name: string;
-  contributionAmount: bigint;
-  cycleDuration: bigint;
-  cycleDeadline: bigint;
-  currentCycle: bigint;
-  balance: bigint;
-  memberCount: bigint;
-  cycleDeposits: bigint;
-  beneficiary: `0x${string}`;
-  reserveFund?: bigint;
-  currentDiscountBid?: bigint;
-  activeDebt?: bigint;
-  isUserMember?: boolean;
-  hasUserDeposited?: boolean;
-}
