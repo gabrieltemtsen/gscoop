@@ -1,7 +1,21 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bot, Send, X, Sparkles, Volume2, VolumeX, ShieldCheck, Zap, Coins } from 'lucide-react';
+import { 
+  Bot, 
+  Send, 
+  X, 
+  Sparkles, 
+  Volume2, 
+  VolumeX, 
+  ShieldCheck, 
+  Zap, 
+  Coins, 
+  Key, 
+  Settings, 
+  ExternalLink,
+  CheckCircle2
+} from 'lucide-react';
 
 interface AIAssistantModalProps {
   isOpen: boolean;
@@ -12,12 +26,13 @@ interface Message {
   role: 'assistant' | 'user';
   text: string;
   time: string;
+  isRealGemini?: boolean;
 }
 
 const INITIAL_MESSAGES: Message[] = [
   {
     role: 'assistant',
-    text: "Hello! I am your GScoop AI Synergy Guide. I'm here to explain how decentralized rotating savings circles work on Arc Mainnet, why our native USDC gas model removes all Web3 onboarding friction, and how you can save together with zero treasurer risk.",
+    text: "Hello! I am your GScoop AI Synergy Guide powered by Google Gemini. I'm here to explain how decentralized rotating savings circles work on Arc Mainnet, why native USDC gas removes all Web3 friction, how idle funds earn float yield, and how you can securely borrow against your future turn.",
     time: 'Just now',
   },
 ];
@@ -50,7 +65,21 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [speechEnabled, setSpeechEnabled] = useState(false);
+  const [showKeyConfig, setShowKeyConfig] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [savedApiKey, setSavedApiKey] = useState('');
+  const [isRealGeminiActive, setIsRealGeminiActive] = useState(false);
+
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('gscoop_gemini_api_key') || '';
+      setSavedApiKey(stored);
+      setApiKeyInput(stored);
+      if (stored) setIsRealGeminiActive(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -61,13 +90,32 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
   const speakText = (text: string) => {
     if (!speechEnabled || typeof window === 'undefined' || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
+    // Strip markdown formatting for cleaner speech output
+    const cleanText = text.replace(/[*#_`]/g, '');
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.rate = 1.05;
     utterance.pitch = 1.0;
     window.speechSynthesis.speak(utterance);
   };
 
-  const generateAnswer = (question: string): string => {
+  const handleSaveApiKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanKey = apiKeyInput.trim();
+    setSavedApiKey(cleanKey);
+    if (typeof window !== 'undefined') {
+      if (cleanKey) {
+        localStorage.setItem('gscoop_gemini_api_key', cleanKey);
+        setIsRealGeminiActive(true);
+      } else {
+        localStorage.removeItem('gscoop_gemini_api_key');
+        setIsRealGeminiActive(false);
+      }
+    }
+    setShowKeyConfig(false);
+  };
+
+  // Local expert fallback generator if real Gemini API key is not yet set
+  const generateFallbackAnswer = (question: string): string => {
     const q = question.toLowerCase();
 
     if (q.includes('gas') || q.includes('usdc') || q.includes('friction') || q.includes('native')) {
@@ -87,21 +135,21 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
       );
     }
 
-    if (q.includes('default') || q.includes('miss') || q.includes('deadline') || q.includes('security')) {
-      return (
-        "**Security & Automated Deadlines:**\n\n" +
-        "1. **Pausable & Non-Reentrant**: GScoop contracts inherit OpenZeppelin's `ReentrancyGuard` and `Pausable` for battle-tested protection against reentrancy exploits.\n" +
-        "2. **Cycle Deadlines**: Each vault defines a strict `cycleDuration` (e.g. 7 days). If a cycle reaches its timestamp deadline, the accumulated balance can be settled to the scheduled beneficiary even if some members lagged, preventing funds from being held hostage.\n" +
-        "3. **Social & Sybil Security**: GScoop vaults are designed for curated affinity groups (families, coworkers, builder circles, guilds) where member addresses are verified by the group organizer."
-      );
-    }
-
     if (q.includes('yield') || q.includes('earn') || q.includes('loan') || q.includes('borrow') || q.includes('auction') || q.includes('credit')) {
       return (
         "**Earning Yield & Secure Lending on GScoop:**\n\n" +
         "1. **Float Yield Compounding**: During active cycles, idle native USDC is routed into an ERC-4626 strategy earning ~5.2% APY. The accrued interest automatically builds the cooperative's reserve fund or boosts the beneficiary's pot!\n\n" +
         "2. **Turn-Collateralized Borrowing (Up to 75%)**: Enrolled members can borrow liquidity against their guaranteed future scheduled turn. The smart contract holds the future payout rights as collateral and **automatically garnishes principal + 2% fee** when their turn arrives.\n\n" +
         "3. **Turn-Bidding Auction (Zero-Risk Advance)**: Members in urgent need of capital can bid an upfront discount to claim the pot immediately. The discount is split and distributed as **instant cash dividends** to the patient savers!"
+      );
+    }
+
+    if (q.includes('default') || q.includes('miss') || q.includes('deadline') || q.includes('security')) {
+      return (
+        "**Security & Automated Deadlines:**\n\n" +
+        "1. **Pausable & Non-Reentrant**: GScoop contracts inherit OpenZeppelin's `ReentrancyGuard` and `Pausable` for battle-tested protection against reentrancy exploits.\n" +
+        "2. **Cycle Deadlines**: Each vault defines a strict `cycleDuration` (e.g. 7 days). If a cycle reaches its timestamp deadline, the accumulated balance can be settled to the scheduled beneficiary even if some members lagged, preventing funds from being held hostage.\n" +
+        "3. **Social & Sybil Security**: GScoop vaults are designed for curated affinity groups (families, coworkers, builder circles, guilds) where member addresses are verified by the group organizer."
       );
     }
 
@@ -121,7 +169,7 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
     );
   };
 
-  const handleSend = (textToSend?: string) => {
+  const handleSend = async (textToSend?: string) => {
     const query = textToSend || input;
     if (!query.trim()) return;
 
@@ -131,21 +179,63 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const newHistory = [...messages, userMsg];
+    setMessages(newHistory);
     setInput('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      const answer = generateAnswer(query);
+    try {
+      // Attempt call to Real Gemini via /api/chat
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(savedApiKey ? { 'x-gemini-api-key': savedApiKey } : {}),
+        },
+        body: JSON.stringify({
+          messages: newHistory,
+          apiKey: savedApiKey,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.hasRealGeminiKey && data.reply) {
+        setIsRealGeminiActive(true);
+        const aiMsg: Message = {
+          role: 'assistant',
+          text: data.reply,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isRealGemini: true,
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+        speakText(data.reply);
+      } else {
+        // Fallback to local expert engine
+        const fallbackAnswer = generateFallbackAnswer(query);
+        const aiMsg: Message = {
+          role: 'assistant',
+          text: fallbackAnswer,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isRealGemini: false,
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+        speakText(fallbackAnswer);
+      }
+    } catch (err) {
+      console.warn('API route failed, using local expert fallback:', err);
+      const fallbackAnswer = generateFallbackAnswer(query);
       const aiMsg: Message = {
         role: 'assistant',
-        text: answer,
+        text: fallbackAnswer,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isRealGemini: false,
       };
       setMessages((prev) => [...prev, aiMsg]);
+      speakText(fallbackAnswer);
+    } finally {
       setIsTyping(false);
-      speakText(answer);
-    }, 600);
+    }
   };
 
   if (!isOpen) return null;
@@ -153,13 +243,13 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       <div 
-        className="relative flex flex-col w-full max-w-2xl h-[640px] rounded-2xl border border-white/[0.12] bg-[#0c0c0f] shadow-2xl overflow-hidden"
+        className="relative flex flex-col w-full max-w-2xl h-[660px] rounded-2xl border border-white/[0.12] bg-[#0c0c0f] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#121216]">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 p-0.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 p-0.5 shadow-lg shadow-emerald-500/20">
               <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-black">
                 <Bot className="h-5 w-5 text-cyan-400" />
               </div>
@@ -167,15 +257,36 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold text-white">GScoop AI Assistant</h3>
-                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
-                  Arc Native
-                </span>
+                {isRealGeminiActive ? (
+                  <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/25">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    <span>Gemini 2.5 Flash</span>
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-400 border border-cyan-500/20">
+                    Arc Cooperative Guide
+                  </span>
+                )}
               </div>
-              <p className="text-[11px] text-zinc-400">Ask about rotating savings, Arc USDC gas, or coop rules</p>
+              <p className="text-[11px] text-zinc-400">Ask about rotating savings, Arc USDC gas, yield, or borrowing</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            {/* Key Settings Button */}
+            <button
+              onClick={() => setShowKeyConfig(!showKeyConfig)}
+              className={`p-2 rounded-lg border transition-all ${
+                savedApiKey
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                  : 'border-white/[0.06] text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+              }`}
+              title="Configure Google Gemini API Key"
+            >
+              <Key className="h-4 w-4" />
+            </button>
+
+            {/* Speech synthesis toggle */}
             <button
               onClick={() => {
                 const nextState = !speechEnabled;
@@ -194,6 +305,7 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
               {speechEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </button>
 
+            {/* Close */}
             <button
               onClick={onClose}
               className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
@@ -202,6 +314,49 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
             </button>
           </div>
         </div>
+
+        {/* API Key Configuration Dropdown */}
+        {showKeyConfig && (
+          <div className="p-4 bg-[#14141a] border-b border-white/[0.08] animate-in fade-in slide-in-from-top-2 duration-200">
+            <form onSubmit={handleSaveApiKey} className="space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-white flex items-center gap-1.5">
+                  <Key className="h-3.5 w-3.5 text-emerald-400" />
+                  Connect Real Google Gemini 2.5 Flash
+                </span>
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-400 hover:underline flex items-center gap-1"
+                >
+                  <span>Get Free Key</span>
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="password"
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder="Paste your Gemini API Key (or set GEMINI_API_KEY in .env.local)..."
+                  className="flex-1 rounded-xl border border-white/[0.1] bg-black/60 px-3.5 py-2 text-xs font-mono text-white placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-black hover:bg-emerald-400 transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+
+              <p className="text-[11px] text-zinc-400">
+                Key is stored securely in your browser session or can be specified via <code className="text-zinc-200">GEMINI_API_KEY</code> on your server.
+              </p>
+            </form>
+          </div>
+        )}
 
         {/* Quick Topics */}
         <div className="flex items-center gap-2 px-6 py-2.5 border-b border-white/[0.04] bg-[#0f0f13] overflow-x-auto no-scrollbar">
@@ -230,16 +385,22 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
               )}
 
               <div
-                className={`max-w-[82%] rounded-2xl px-4 py-3 text-xs sm:text-sm leading-relaxed ${
+                className={`max-w-[84%] rounded-2xl px-4 py-3 text-xs sm:text-sm leading-relaxed ${
                   m.role === 'user'
                     ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-medium shadow-md shadow-emerald-500/10'
                     : 'bg-[#15151a] border border-white/[0.08] text-zinc-200 shadow-sm'
                 }`}
               >
                 <div className="whitespace-pre-wrap">{m.text}</div>
-                <span className={`block mt-1 text-[10px] ${m.role === 'user' ? 'text-emerald-200' : 'text-zinc-400'}`}>
-                  {m.time}
-                </span>
+                <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-400">
+                  <span>{m.time}</span>
+                  {m.isRealGemini && (
+                    <span className="text-emerald-400 font-mono flex items-center gap-1 font-semibold">
+                      <Sparkles className="h-2.5 w-2.5" />
+                      Gemini
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -250,10 +411,13 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
                 <Bot className="h-4 w-4" />
               </div>
               <div className="rounded-2xl bg-[#15151a] border border-white/[0.08] px-4 py-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-bounce" />
-                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]" />
-                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.4s]" />
+                <div className="flex items-center gap-2 text-xs text-zinc-400">
+                  <div className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-bounce" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.4s]" />
+                  </div>
+                  <span>Gemini thinking...</span>
                 </div>
               </div>
             </div>
@@ -274,13 +438,13 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about Arc native gas, rotating payouts, or setting up a pool..."
+              placeholder="Ask Gemini about Arc native gas, float yield, borrowing against turns..."
               className="flex-1 rounded-xl border border-white/[0.1] bg-[#1a1a20] px-4 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all"
             />
             <button
               type="submit"
               disabled={!input.trim() || isTyping}
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-black font-semibold shadow-lg shadow-emerald-500/20 hover:opacity-90 disabled:opacity-40 transition-all"
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-black font-semibold shadow-lg shadow-emerald-500/20 hover:opacity-90 disabled:opacity-40 transition-all cursor-pointer"
             >
               <Send className="h-4 w-4" />
             </button>
