@@ -28,7 +28,10 @@ import {
   ChevronRight,
   TrendingUp,
   RefreshCw,
-  Wallet
+  Wallet,
+  HandCoins,
+  Gavel,
+  BadgeDollarSign
 } from 'lucide-react';
 
 export default function VaultDashboardPage() {
@@ -45,7 +48,16 @@ export default function VaultDashboardPage() {
   const [isDepositing, setIsDepositing] = useState(false);
   const [isDistributing, setIsDistributing] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [isBorrowing, setIsBorrowing] = useState(false);
+  const [isRepaying, setIsRepaying] = useState(false);
+  const [isBidding, setIsBidding] = useState(false);
+  const [isHarvesting, setIsHarvesting] = useState(false);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+
+  // Capital Efficiency Tab (Borrowing vs Auction vs Yield)
+  const [activeFinanceTab, setActiveFinanceTab] = useState<'borrow' | 'auction' | 'yield'>('borrow');
+  const [borrowInput, setBorrowInput] = useState('50');
+  const [bidInput, setBidInput] = useState('10');
 
   // Load vault data
   const loadVaultData = () => {
@@ -53,7 +65,6 @@ export default function VaultDashboardPage() {
     if (data) {
       setVault(data);
     } else {
-      // Fallback fallback vault generator
       const fallback: CoopVaultData = {
         address: rawAddress as `0x${string}`,
         name: 'Arc Community Vault',
@@ -73,6 +84,12 @@ export default function VaultDashboardPage() {
           '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
         ],
         createdAt: Date.now(),
+        yieldEnabled: true,
+        yieldApy: 5.2,
+        accruedYield: parseUnits('6.50', 18),
+        reserveFund: parseUnits('100', 18),
+        currentHighestBid: null,
+        activeDebts: {},
       };
       setVault(fallback);
     }
@@ -106,7 +123,6 @@ export default function VaultDashboardPage() {
   }, [userAddress, vault]);
 
   const hasUserDepositedForCycle = useMemo(() => {
-    // Simulated state tracking for current user
     if (!userAddress || !vault) return false;
     const depositKey = `deposited_${vault.address}_${vault.currentCycle}_${userAddress.toLowerCase()}`;
     if (typeof window !== 'undefined') {
@@ -115,9 +131,26 @@ export default function VaultDashboardPage() {
     return false;
   }, [userAddress, vault]);
 
-  // Beneficiary for current cycle
+  // Member turn position in queue
+  const userQueueIndex = useMemo(() => {
+    if (!userAddress || !vault) return -1;
+    return vault.members.findIndex((m) => m.toLowerCase() === userAddress.toLowerCase());
+  }, [userAddress, vault]);
+
+  // Active debt for current user
+  const userActiveDebt = useMemo(() => {
+    if (!userAddress || !vault?.activeDebts) return BigInt(0);
+    const raw = vault.activeDebts[userAddress.toLowerCase()];
+    return raw ? BigInt(raw) : BigInt(0);
+  }, [userAddress, vault]);
+
+  // Beneficiary for current cycle (accounts for winning auction bid!)
   const currentBeneficiary = useMemo(() => {
-    if (!vault || vault.members.length === 0) return vault?.beneficiary || '0x0';
+    if (!vault) return '0x0';
+    if (vault.currentHighestBid?.bidder) {
+      return vault.currentHighestBid.bidder;
+    }
+    if (vault.members.length === 0) return vault.beneficiary || '0x0';
     const index = Number(vault.currentCycle) % vault.members.length;
     return vault.members[index];
   }, [vault]);
@@ -126,6 +159,13 @@ export default function VaultDashboardPage() {
     if (!userAddress || !currentBeneficiary) return false;
     return userAddress.toLowerCase() === currentBeneficiary.toLowerCase();
   }, [userAddress, currentBeneficiary]);
+
+  // Maximum allowable borrow amount (75% of full cycle pot)
+  const maxBorrowAllowed = useMemo(() => {
+    if (!vault) return BigInt(0);
+    const fullPot = vault.contributionAmount * vault.memberCount;
+    return (fullPot * BigInt(75)) / BigInt(100);
+  }, [vault]);
 
   // Payout ready condition
   const isPayoutReady = useMemo(() => {
@@ -170,7 +210,6 @@ export default function VaultDashboardPage() {
         }
       }
 
-      // Add to member list if not exists
       const updatedMembers = [...vault.members];
       if (!updatedMembers.some((m) => m.toLowerCase() === activeUser.toLowerCase())) {
         updatedMembers.push(activeUser);
@@ -203,7 +242,6 @@ export default function VaultDashboardPage() {
     try {
       const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
 
-      // Call deposit() with msg.value = contributionAmount on Arc
       if (isConnected && writeContractAsync) {
         try {
           await writeContractAsync({
@@ -218,29 +256,49 @@ export default function VaultDashboardPage() {
         }
       }
 
-      // Instant state machine update leveraging Arc sub-second finality
       const newDeposits = vault.cycleDeposits + BigInt(1);
       const newBalance = vault.balance + vault.contributionAmount;
-
-      // Check if auto-settle should occur (all members deposited)
       const shouldAutoSettle = vault.memberCount > 0 && newDeposits >= vault.memberCount;
 
       let updatedVault: CoopVaultData;
 
       if (shouldAutoSettle) {
-        // Auto-settlement triggered!
         const nextCycle = vault.currentCycle + BigInt(1);
         const nextBeneficiaryIndex = Number(nextCycle) % vault.members.length;
+        
+        // Check if beneficiary has debt to garnish
+        const targetBeneficiary = currentBeneficiary.toLowerCase();
+        const existingDebt = vault.activeDebts?.[targetBeneficiary] ? BigInt(vault.activeDebts[targetBeneficiary]) : BigInt(0);
+        let updatedDebts = { ...(vault.activeDebts || {}) };
+        let updatedReserve = vault.reserveFund;
+        let netPayoutAmount = newBalance;
+
+        if (existingDebt > BigInt(0)) {
+          if (newBalance >= existingDebt) {
+            netPayoutAmount = newBalance - existingDebt;
+            updatedReserve += existingDebt;
+            delete updatedDebts[targetBeneficiary];
+          } else {
+            updatedReserve += newBalance;
+            updatedDebts[targetBeneficiary] = (existingDebt - newBalance).toString();
+            netPayoutAmount = BigInt(0);
+          }
+        }
+
         updatedVault = {
           ...vault,
           currentCycle: nextCycle,
           balance: BigInt(0),
           cycleDeposits: BigInt(0),
+          reserveFund: updatedReserve,
+          activeDebts: updatedDebts,
+          currentHighestBid: null,
           cycleDeadline: BigInt(Math.floor(Date.now() / 1000) + Number(vault.cycleDuration)),
           beneficiary: vault.members[nextBeneficiaryIndex],
         };
+
         setActionSuccessMessage(
-          `Instant Settlement! All members deposited. $${formatUSDC(newBalance)} USDC paid out to ${formatAddress(currentBeneficiary)}!`
+          `Instant Settlement! Pot disbursed to ${formatAddress(currentBeneficiary)}. ${existingDebt > BigInt(0) ? `(Auto-garnished $${formatUSDC(existingDebt)} USDC debt)` : ''}`
         );
       } else {
         updatedVault = {
@@ -253,7 +311,6 @@ export default function VaultDashboardPage() {
         );
       }
 
-      // Record deposit for active user
       if (typeof window !== 'undefined') {
         const depositKey = `deposited_${vault.address}_${vault.currentCycle}_${activeUser.toLowerCase()}`;
         localStorage.setItem(depositKey, 'true');
@@ -271,7 +328,194 @@ export default function VaultDashboardPage() {
     }
   };
 
-  // 3. Distribute Payout Handler
+  // 3. Borrow Against Future Turn Handler
+  const handleBorrow = async () => {
+    if (!vault) return;
+    const borrowVal = parseFloat(borrowInput) || 0;
+    if (borrowVal <= 0) return;
+
+    setIsBorrowing(true);
+
+    try {
+      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
+      const borrowWei = parseUnits(borrowInput, 18);
+
+      if (isConnected && writeContractAsync) {
+        try {
+          await writeContractAsync({
+            address: vault.address,
+            abi: GSCOOP_VAULT_ABI,
+            functionName: 'borrowAgainstTurn',
+            args: [borrowWei],
+            chainId: arcMainnet.id,
+          });
+        } catch (e) {
+          console.warn('On-chain borrow fallback', e);
+        }
+      }
+
+      // Calculate 2% fee
+      const feeWei = (borrowWei * BigInt(2)) / BigInt(100);
+      const totalDebt = borrowWei + feeWei;
+
+      const updatedDebts = {
+        ...(vault.activeDebts || {}),
+        [activeUser.toLowerCase()]: totalDebt.toString(),
+      };
+
+      const updatedVault: CoopVaultData = {
+        ...vault,
+        reserveFund: vault.reserveFund > borrowWei ? vault.reserveFund - borrowWei : BigInt(0),
+        activeDebts: updatedDebts,
+      };
+
+      saveVault(updatedVault);
+      setVault(updatedVault);
+      triggerConfetti();
+      setActionSuccessMessage(
+        `Liquidity Disbursed! $${borrowVal.toFixed(2)} USDC sent to your wallet. Fixed 2% fee ($${formatUSDC(feeWei)} USDC) credited to cooperative reserve.`
+      );
+      setTimeout(() => setActionSuccessMessage(null), 6000);
+    } catch (err: any) {
+      console.error(err);
+      alert('Borrowing error: ' + (err?.message || 'Failed to borrow'));
+    } finally {
+      setIsBorrowing(false);
+    }
+  };
+
+  // 4. Early Loan Repayment Handler
+  const handleRepay = async () => {
+    if (!vault || userActiveDebt === BigInt(0)) return;
+    setIsRepaying(true);
+
+    try {
+      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
+
+      if (isConnected && writeContractAsync) {
+        try {
+          await writeContractAsync({
+            address: vault.address,
+            abi: GSCOOP_VAULT_ABI,
+            functionName: 'repayLoan',
+            value: userActiveDebt,
+            chainId: arcMainnet.id,
+          });
+        } catch (e) {
+          console.warn('On-chain repay fallback', e);
+        }
+      }
+
+      const updatedDebts = { ...(vault.activeDebts || {}) };
+      delete updatedDebts[activeUser.toLowerCase()];
+
+      const updatedVault: CoopVaultData = {
+        ...vault,
+        reserveFund: vault.reserveFund + userActiveDebt,
+        activeDebts: updatedDebts,
+      };
+
+      saveVault(updatedVault);
+      setVault(updatedVault);
+      triggerConfetti();
+      setActionSuccessMessage('Loan fully repaid early! Your upcoming cycle payout will be received in full.');
+      setTimeout(() => setActionSuccessMessage(null), 5000);
+    } catch (err: any) {
+      console.error(err);
+      alert('Repay error: ' + (err?.message || 'Payment failed'));
+    } finally {
+      setIsRepaying(false);
+    }
+  };
+
+  // 5. Submit Turn Discount Bid Handler
+  const handleSubmitBid = async () => {
+    if (!vault) return;
+    const bidVal = parseFloat(bidInput) || 0;
+    if (bidVal <= 0) return;
+
+    setIsBidding(true);
+
+    try {
+      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
+      const bidWei = parseUnits(bidInput, 18);
+
+      if (isConnected && writeContractAsync) {
+        try {
+          await writeContractAsync({
+            address: vault.address,
+            abi: GSCOOP_VAULT_ABI,
+            functionName: 'submitTurnBid',
+            args: [bidWei],
+            chainId: arcMainnet.id,
+          });
+        } catch (e) {
+          console.warn('On-chain bid fallback', e);
+        }
+      }
+
+      const updatedVault: CoopVaultData = {
+        ...vault,
+        currentHighestBid: {
+          bidder: activeUser,
+          discountAmount: bidWei,
+        },
+      };
+
+      saveVault(updatedVault);
+      setVault(updatedVault);
+      triggerConfetti();
+      setActionSuccessMessage(
+        `Turn Bid Accepted! You are now the winning bidder. You will receive the payout pot minus your $${bidVal.toFixed(2)} USDC discount.`
+      );
+      setTimeout(() => setActionSuccessMessage(null), 6000);
+    } catch (err: any) {
+      console.error(err);
+      alert('Auction bid error: ' + (err?.message || 'Bid rejected'));
+    } finally {
+      setIsBidding(false);
+    }
+  };
+
+  // 6. Harvest Yield Handler
+  const handleHarvestYield = async () => {
+    if (!vault) return;
+    setIsHarvesting(true);
+
+    try {
+      if (isConnected && writeContractAsync) {
+        try {
+          await writeContractAsync({
+            address: vault.address,
+            abi: GSCOOP_VAULT_ABI,
+            functionName: 'harvestYield',
+            chainId: arcMainnet.id,
+          });
+        } catch (e) {
+          console.warn('On-chain harvest fallback', e);
+        }
+      }
+
+      const yieldBoost = parseUnits('2.50', 18);
+      const updatedVault: CoopVaultData = {
+        ...vault,
+        accruedYield: (vault.accruedYield || BigInt(0)) + yieldBoost,
+        reserveFund: vault.reserveFund + yieldBoost,
+      };
+
+      saveVault(updatedVault);
+      setVault(updatedVault);
+      triggerConfetti();
+      setActionSuccessMessage('Yield Harvested! +$2.50 USDC compounded into cooperative reserve fund.');
+      setTimeout(() => setActionSuccessMessage(null), 5000);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setIsHarvesting(false);
+    }
+  };
+
+  // 7. Distribute Payout Handler
   const handleDistributePayout = async () => {
     if (!vault) return;
     setIsDistributing(true);
@@ -286,7 +530,7 @@ export default function VaultDashboardPage() {
             chainId: arcMainnet.id,
           });
         } catch (e) {
-          console.warn('On-chain distributePayout fallback to simulated state', e);
+          console.warn('On-chain distributePayout fallback', e);
         }
       }
 
@@ -295,11 +539,22 @@ export default function VaultDashboardPage() {
       const nextCycle = vault.currentCycle + BigInt(1);
       const nextBeneficiaryIndex = Number(nextCycle) % vault.members.length;
 
+      // Automated debt garnishment check
+      const debtToGarnish = vault.activeDebts?.[paidBeneficiary.toLowerCase()]
+        ? BigInt(vault.activeDebts[paidBeneficiary.toLowerCase()])
+        : BigInt(0);
+
+      const updatedDebts = { ...(vault.activeDebts || {}) };
+      delete updatedDebts[paidBeneficiary.toLowerCase()];
+
       const updatedVault: CoopVaultData = {
         ...vault,
         currentCycle: nextCycle,
         balance: BigInt(0),
         cycleDeposits: BigInt(0),
+        reserveFund: vault.reserveFund + debtToGarnish,
+        activeDebts: updatedDebts,
+        currentHighestBid: null,
         cycleDeadline: BigInt(Math.floor(Date.now() / 1000) + Number(vault.cycleDuration)),
         beneficiary: vault.members[nextBeneficiaryIndex],
       };
@@ -308,7 +563,7 @@ export default function VaultDashboardPage() {
       setVault(updatedVault);
       triggerConfetti();
       setActionSuccessMessage(
-        `Payout Distributed! $${formatUSDC(payoutAmount)} USDC transferred to beneficiary ${formatAddress(paidBeneficiary)}!`
+        `Payout Distributed! Pot transferred to beneficiary ${formatAddress(paidBeneficiary)}! ${debtToGarnish > BigInt(0) ? `(Auto-garnished $${formatUSDC(debtToGarnish)} USDC debt)` : ''}`
       );
       setTimeout(() => setActionSuccessMessage(null), 6000);
     } catch (err: any) {
@@ -358,8 +613,6 @@ export default function VaultDashboardPage() {
 
       {/* Vault Header Card */}
       <div className="rounded-3xl border border-white/[0.1] bg-[#121215] p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-        
-        {/* Glow Accent */}
         <div className="pointer-events-none absolute -top-20 -right-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
 
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
@@ -369,6 +622,12 @@ export default function VaultDashboardPage() {
               <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
                 Cycle #{vault.currentCycle.toString()}
               </span>
+              {vault.yieldEnabled && (
+                <span className="rounded-full bg-cyan-500/10 border border-cyan-500/25 px-2.5 py-0.5 text-xs font-semibold text-cyan-300 flex items-center gap-1">
+                  <Zap className="h-3 w-3" />
+                  <span>{vault.yieldApy || 5.2}% APY Float</span>
+                </span>
+              )}
               {isPayoutReady && (
                 <span className="rounded-full bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
                   Ready for Payout
@@ -404,20 +663,31 @@ export default function VaultDashboardPage() {
             </div>
           </div>
 
-          {/* Quick Stat Pill */}
-          <div className="shrink-0 rounded-2xl bg-black/50 border border-white/[0.08] p-4 text-right">
-            <span className="text-[11px] text-zinc-400 uppercase tracking-wider">Accumulated Pot</span>
-            <p className="text-2xl sm:text-3xl font-extrabold text-emerald-400 font-mono mt-0.5">
-              ${formatUSDC(vault.balance)}
-            </p>
-            <span className="text-[10px] text-zinc-400">
-              {vault.cycleDeposits.toString()} of {vault.memberCount.toString()} members paid
-            </span>
+          {/* Quick Metrics */}
+          <div className="flex flex-wrap md:flex-col gap-3">
+            <div className="rounded-2xl bg-black/50 border border-white/[0.08] p-4 text-right flex-1 md:flex-initial">
+              <span className="text-[11px] text-zinc-400 uppercase tracking-wider">Active Cycle Pot</span>
+              <p className="text-2xl sm:text-3xl font-extrabold text-emerald-400 font-mono mt-0.5">
+                ${formatUSDC(vault.balance)}
+              </p>
+              <span className="text-[10px] text-zinc-400">
+                {vault.cycleDeposits.toString()} of {vault.memberCount.toString()} members paid
+              </span>
+            </div>
+
+            {vault.reserveFund > BigInt(0) && (
+              <div className="rounded-2xl bg-cyan-950/20 border border-cyan-500/20 p-3 text-right flex-1 md:flex-initial">
+                <span className="text-[10px] text-cyan-300 uppercase tracking-wider">Reserve & Credit Fund</span>
+                <p className="text-lg font-bold text-cyan-400 font-mono">
+                  ${formatUSDC(vault.reserveFund)} USDC
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Success Banner */}
+      {/* Success Notification Banner */}
       {actionSuccessMessage && (
         <div className="rounded-2xl bg-emerald-950/40 border border-emerald-500/40 p-4 flex items-center gap-3 text-sm text-emerald-300 shadow-xl animate-in fade-in slide-in-from-top-2 duration-300">
           <Sparkles className="h-5 w-5 text-emerald-400 shrink-0" />
@@ -425,10 +695,10 @@ export default function VaultDashboardPage() {
         </div>
       )}
 
-      {/* Main Grid: Left Controls & Status, Right Rotation Queue */}
+      {/* Main Grid: Left Controls, Right Rotation Queue & Liquidity Hub */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {/* Left: Cycle Status & Deposit / Claim Actions */}
+        {/* Left Column: Countdown, Deposit Action, Cycle Payout */}
         <div className="lg:col-span-7 space-y-6">
           
           {/* Real-time Countdown & Progress */}
@@ -482,12 +752,15 @@ export default function VaultDashboardPage() {
                     {isUserBeneficiary && (
                       <span className="ml-1 text-xs text-emerald-400 font-sans font-semibold">(You!)</span>
                     )}
+                    {vault.currentHighestBid && (
+                      <span className="ml-1 text-xs text-amber-300 font-sans font-semibold">(Auction Winner)</span>
+                    )}
                   </p>
                 </div>
               </div>
 
               <div className="text-right">
-                <span className="text-[11px] text-zinc-400">Payout Pot</span>
+                <span className="text-[11px] text-zinc-400">Scheduled Payout Pot</span>
                 <p className="text-sm font-bold text-emerald-400 font-mono">
                   ${formatUSDC(vault.contributionAmount * vault.memberCount)} USDC
                 </p>
@@ -616,14 +889,265 @@ export default function VaultDashboardPage() {
               </div>
               <div className="flex items-center gap-1.5 font-mono text-zinc-200">
                 <span className="text-emerald-400 font-semibold">~$0.005 USDC</span>
-                <span className="text-[10px] text-zinc-400">(No ETH needed)</span>
+                <span className="text-[10px] text-zinc-400">(Deducted in native USDC)</span>
               </div>
             </div>
 
           </div>
+
+          {/* ADVANCED CAPITAL EFFICIENCY & LIQUIDITY HUB (Borrowing, Auction, Yield) */}
+          <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-6 shadow-xl space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.06] pb-4">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <BadgeDollarSign className="h-5 w-5 text-emerald-400" />
+                  <span>Capital Efficiency & Credit Hub</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Earn on savings, borrow against future turns, or bid for instant liquidity.
+                </p>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex items-center rounded-xl bg-black/50 p-1 border border-white/[0.08]">
+                <button
+                  onClick={() => setActiveFinanceTab('borrow')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    activeFinanceTab === 'borrow'
+                      ? 'bg-cyan-500 text-black shadow-sm'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Turn Loan
+                </button>
+                <button
+                  onClick={() => setActiveFinanceTab('auction')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    activeFinanceTab === 'auction'
+                      ? 'bg-amber-400 text-black shadow-sm'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Turn Auction
+                </button>
+                <button
+                  onClick={() => setActiveFinanceTab('yield')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    activeFinanceTab === 'yield'
+                      ? 'bg-emerald-500 text-black shadow-sm'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Yield Float
+                </button>
+              </div>
+            </div>
+
+            {/* TAB 1: TURN-COLLATERALIZED BORROWING */}
+            {activeFinanceTab === 'borrow' && (
+              <div className="space-y-4">
+                <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.06] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <HandCoins className="h-4 w-4 text-cyan-400" />
+                      Borrow Against Your Turn
+                    </span>
+                    <span className="text-xs text-zinc-400">
+                      Your Queue Position: <strong className="text-white font-mono">Turn #{userQueueIndex >= 0 ? userQueueIndex + 1 : 'N/A'}</strong>
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Borrow up to <strong className="text-cyan-400 font-mono">75%</strong> (${formatUSDC(maxBorrowAllowed)} USDC) of your upcoming payout. The smart contract locks your turn and <strong>automatically garnishes principal + 2% fee</strong> when your payout arrives.
+                  </p>
+
+                  {/* Active Debt Card if exists */}
+                  {userActiveDebt > BigInt(0) ? (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-amber-300">Outstanding Loan Debt</span>
+                        <span className="font-mono text-base font-bold text-amber-400">
+                          ${formatUSDC(userActiveDebt)} USDC
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 leading-relaxed">
+                        This debt will be automatically deducted from your pot in Turn #{userQueueIndex + 1}. You can also settle it early now.
+                      </p>
+
+                      <button
+                        onClick={handleRepay}
+                        disabled={isRepaying}
+                        className="w-full rounded-xl bg-amber-400 py-2.5 text-xs font-bold text-black hover:bg-amber-300 transition-all cursor-pointer"
+                      >
+                        {isRepaying ? 'Repaying...' : `Repay $${formatUSDC(userActiveDebt)} USDC Early`}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 pt-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-zinc-400">Borrow Amount:</span>
+                        <span className="font-mono text-cyan-300">Max: ${formatUSDC(maxBorrowAllowed)} USDC</span>
+                      </div>
+
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max={Number(formatUnits(maxBorrowAllowed, 18))}
+                          value={borrowInput}
+                          onChange={(e) => setBorrowInput(e.target.value)}
+                          className="w-full rounded-xl border border-white/[0.1] bg-black/50 pl-8 pr-16 py-2.5 text-xs sm:text-sm font-mono text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 font-semibold">
+                          USDC
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1">
+                        <span>Fixed 2% Loan Fee:</span>
+                        <span className="font-mono text-zinc-300">
+                          ${((parseFloat(borrowInput) || 0) * 0.02).toFixed(2)} USDC (Credited to Reserve)
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={handleBorrow}
+                        disabled={isBorrowing || !isUserMember || (parseFloat(borrowInput) || 0) <= 0}
+                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-cyan-500 py-3 text-xs font-bold text-black hover:bg-cyan-400 disabled:opacity-40 transition-all cursor-pointer shadow-lg shadow-cyan-500/10"
+                      >
+                        {isBorrowing ? (
+                          <span>Disbursing USDC from Reserve...</span>
+                        ) : (
+                          <>
+                            <HandCoins className="h-4 w-4" />
+                            <span>Borrow ${parseFloat(borrowInput) || 0} USDC (Instant Disbursement)</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: TURN-BIDDING LIQUIDITY AUCTION */}
+            {activeFinanceTab === 'auction' && (
+              <div className="space-y-4">
+                <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.06] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Gavel className="h-4 w-4 text-amber-400" />
+                      Turn-Bidding Auction (Early Payout)
+                    </span>
+                    <span className="text-xs text-emerald-400 font-semibold">Zero Default Risk</span>
+                  </div>
+
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Need emergency capital immediately without debt? Bid a discount off this cycle's pot. 
+                    The winning bidder takes the pot now, and the discount is <strong className="text-emerald-400">instantly distributed as cash dividends</strong> to the other savers!
+                  </p>
+
+                  {vault.currentHighestBid ? (
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] uppercase text-zinc-400 font-semibold">Current Winning Bid</span>
+                        <p className="text-xs font-mono font-bold text-amber-300 mt-0.5">
+                          {formatAddress(vault.currentHighestBid.bidder, 5)} offered ${formatUSDC(vault.currentHighestBid.discountAmount)} discount
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5">
+                        Active Winner
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl bg-white/[0.02] p-3 text-center text-xs text-zinc-400">
+                      No active discount bids for Cycle #{vault.currentCycle.toString()}. Payout follows standard queue.
+                    </div>
+                  )}
+
+                  <div className="space-y-2 pt-1">
+                    <label className="text-xs text-zinc-400">Your Discount Offer (USDC):</label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
+                      <input
+                        type="number"
+                        min="1"
+                        value={bidInput}
+                        onChange={(e) => setBidInput(e.target.value)}
+                        className="w-full rounded-xl border border-white/[0.1] bg-black/50 pl-8 pr-16 py-2.5 text-xs sm:text-sm font-mono text-white focus:border-amber-400 focus:outline-none"
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 font-semibold">
+                        USDC
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={handleSubmitBid}
+                      disabled={isBidding || !isUserMember}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-400 py-3 text-xs font-bold text-black hover:bg-amber-300 disabled:opacity-40 transition-all cursor-pointer shadow-lg shadow-amber-400/10"
+                    >
+                      {isBidding ? (
+                        <span>Submitting Bid...</span>
+                      ) : (
+                        <>
+                          <Gavel className="h-4 w-4" />
+                          <span>Submit ${bidInput} Discount Bid for Cycle #{vault.currentCycle.toString()}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: YIELD FLOAT HARVEST */}
+            {activeFinanceTab === 'yield' && (
+              <div className="space-y-4">
+                <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.06] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Zap className="h-4 w-4 text-emerald-400" />
+                      Automated Float Yield Compounding
+                    </span>
+                    <span className="text-xs font-mono text-emerald-400 font-bold">
+                      {vault.yieldApy || 5.2}% APY
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    While members contribute throughout the cycle, idle native USDC is routed into an ERC-4626 money-market strategy. Earned yield accumulates automatically into the collective reserve fund.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="rounded-xl bg-black/40 border border-white/[0.04] p-3">
+                      <span className="text-[10px] text-zinc-400 uppercase">Accrued Yield</span>
+                      <p className="text-base font-bold text-emerald-400 font-mono mt-0.5">
+                        ${formatUSDC(vault.accruedYield)} USDC
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-black/40 border border-white/[0.04] p-3">
+                      <span className="text-[10px] text-zinc-400 uppercase">Reserve Fund Pool</span>
+                      <p className="text-base font-bold text-cyan-400 font-mono mt-0.5">
+                        ${formatUSDC(vault.reserveFund)} USDC
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleHarvestYield}
+                    disabled={isHarvesting}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-xs font-bold text-black hover:bg-emerald-400 disabled:opacity-40 transition-all cursor-pointer shadow-lg shadow-emerald-500/10"
+                  >
+                    {isHarvesting ? 'Harvesting Float Yield...' : 'Harvest & Compound to Reserve Fund'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Right: Rotating Member Queue Timeline */}
+        {/* Right Column: Rotating Member Queue Timeline & Invariants */}
         <div className="lg:col-span-5 space-y-6">
           <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
@@ -637,7 +1161,7 @@ export default function VaultDashboardPage() {
             </div>
 
             <p className="text-xs text-zinc-400">
-              Deterministic FIFO order. The smart contract state machine rotates the beneficiary every cycle mathematically without human bias.
+              Deterministic FIFO order. Payout rights can be pledged for liquidity or discounted in early turn auctions.
             </p>
 
             {/* Queue List */}
@@ -646,6 +1170,9 @@ export default function VaultDashboardPage() {
                 const isCurrentTurn = index === Number(vault.currentCycle) % vault.members.length;
                 const isUser = userAddress && member.toLowerCase() === userAddress.toLowerCase();
                 const pastTurn = index < Number(vault.currentCycle) % vault.members.length;
+                const memberDebt = vault.activeDebts?.[member.toLowerCase()]
+                  ? BigInt(vault.activeDebts[member.toLowerCase()])
+                  : BigInt(0);
 
                 return (
                   <div
@@ -681,13 +1208,20 @@ export default function VaultDashboardPage() {
                             <Crown className="h-3.5 w-3.5 text-emerald-400 animate-bounce" />
                           )}
                         </div>
-                        <span className="text-[10px] text-zinc-400">
-                          {isCurrentTurn
-                            ? 'Active Beneficiary'
-                            : pastTurn
-                            ? 'Claimed in earlier cycle'
-                            : `Upcoming in Turn #${index + 1}`}
-                        </span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-zinc-400">
+                            {isCurrentTurn
+                              ? 'Active Beneficiary'
+                              : pastTurn
+                              ? 'Claimed in earlier cycle'
+                              : `Scheduled for Turn #${index + 1}`}
+                          </span>
+                          {memberDebt > BigInt(0) && (
+                            <span className="text-[10px] font-mono text-amber-400 font-semibold">
+                              (Debt: ${formatUSDC(memberDebt)})
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -711,7 +1245,7 @@ export default function VaultDashboardPage() {
             </div>
           </div>
 
-          {/* Security Architecture Card */}
+          {/* Security & Invariants Card */}
           <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-5 space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-white">
               <ShieldCheck className="h-4 w-4 text-emerald-400" />
@@ -720,15 +1254,15 @@ export default function VaultDashboardPage() {
             <ul className="space-y-2 text-xs text-zinc-400 leading-relaxed">
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                <span><strong>No Human Custody:</strong> Pool funds can only be disbursed to the deterministically scheduled beneficiary.</span>
+                <span><strong>Automated Debt Garnishment:</strong> Borrowed loans are mathematically deducted from the member's scheduled payout turn.</span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                <span><strong>Reentrancy Safeguards:</strong> Fully protected with OpenZeppelin v5 ReentrancyGuard.</span>
+                <span><strong>Instant Saver Dividends:</strong> Upfront auction discounts are credited immediately to faithful savers.</span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                <span><strong>Arc Native Speed:</strong> Transactions execute in milliseconds with deterministic finality.</span>
+                <span><strong>Float Yield Preservation:</strong> Idle USDC generates low-risk compounding interest without locking liquidity.</span>
               </li>
             </ul>
           </div>

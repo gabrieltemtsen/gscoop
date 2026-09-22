@@ -24,6 +24,10 @@ const INITIAL_MESSAGES: Message[] = [
 
 const PRESET_TOPICS = [
   {
+    label: '💰 Earning Yield & Loans',
+    prompt: 'How can cooperative cycles earn on their savings and how can loans be securely taken?',
+  },
+  {
     label: '⚡ Why Native USDC Gas?',
     prompt: 'Why does Arc using USDC as the native gas token eliminate traditional crypto friction for savings pools?',
   },
@@ -89,6 +93,15 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
         "1. **Pausable & Non-Reentrant**: GScoop contracts inherit OpenZeppelin's `ReentrancyGuard` and `Pausable` for battle-tested protection against reentrancy exploits.\n" +
         "2. **Cycle Deadlines**: Each vault defines a strict `cycleDuration` (e.g. 7 days). If a cycle reaches its timestamp deadline, the accumulated balance can be settled to the scheduled beneficiary even if some members lagged, preventing funds from being held hostage.\n" +
         "3. **Social & Sybil Security**: GScoop vaults are designed for curated affinity groups (families, coworkers, builder circles, guilds) where member addresses are verified by the group organizer."
+      );
+    }
+
+    if (q.includes('yield') || q.includes('earn') || q.includes('loan') || q.includes('borrow') || q.includes('auction') || q.includes('credit')) {
+      return (
+        "**Earning Yield & Secure Lending on GScoop:**\n\n" +
+        "1. **Float Yield Compounding**: During active cycles, idle native USDC is routed into an ERC-4626 strategy earning ~5.2% APY. The accrued interest automatically builds the cooperative's reserve fund or boosts the beneficiary's pot!\n\n" +
+        "2. **Turn-Collateralized Borrowing (Up to 75%)**: Enrolled members can borrow liquidity against their guaranteed future scheduled turn. The smart contract holds the future payout rights as collateral and **automatically garnishes principal + 2% fee** when their turn arrives.\n\n" +
+        "3. **Turn-Bidding Auction (Zero-Risk Advance)**: Members in urgent need of capital can bid an upfront discount to claim the pot immediately. The discount is split and distributed as **instant cash dividends** to the patient savers!"
       );
     }
 

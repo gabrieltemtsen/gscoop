@@ -45,6 +45,9 @@ export default function CreateVaultPage() {
   const [contribution, setContribution] = useState('50');
   const [cycleDuration, setCycleDuration] = useState(7 * 86400);
   const [maxMembers, setMaxMembers] = useState(5);
+  const [enableYield, setEnableYield] = useState(true);
+  const [enableCredit, setEnableCredit] = useState(true);
+  const [enableAuction, setEnableAuction] = useState(true);
 
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployedVault, setDeployedVault] = useState<CoopVaultData | null>(null);
@@ -101,6 +104,12 @@ export default function CreateVaultPage() {
         creator: creatorAddress,
         members: [creatorAddress],
         createdAt: Date.now(),
+        yieldEnabled: enableYield,
+        yieldApy: enableYield ? 5.2 : undefined,
+        accruedYield: BigInt(0),
+        reserveFund: parseUnits('50', 18),
+        currentHighestBid: null,
+        activeDebts: {},
       };
 
       // Save to local registry store
@@ -262,6 +271,70 @@ export default function CreateVaultPage() {
               </div>
             </div>
 
+            {/* Yield & Credit Features */}
+            <div className="space-y-3 rounded-2xl border border-white/[0.08] bg-[#0c0c0e] p-4">
+              <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider block">
+                Advanced Capital Efficiency & Liquidity Options
+              </span>
+
+              {/* Toggle 1: Yield Strategy */}
+              <label className="flex items-start gap-3 p-2 rounded-xl hover:bg-white/[0.02] cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  checked={enableYield}
+                  onChange={(e) => setEnableYield(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
+                />
+                <div className="text-xs space-y-0.5">
+                  <span className="font-semibold text-white flex items-center gap-1.5">
+                    <Zap className="h-3.5 w-3.5 text-emerald-400" />
+                    Automated Float Yield Compounding (5.2% APY)
+                  </span>
+                  <p className="text-zinc-400 text-[11px] leading-relaxed">
+                    Routes idle cycle deposits into an ERC-4626 USDC strategy. Accrued yield boosts the payout pot or collective reserve.
+                  </p>
+                </div>
+              </label>
+
+              {/* Toggle 2: Turn-Collateralized Borrowing */}
+              <label className="flex items-start gap-3 p-2 rounded-xl hover:bg-white/[0.02] cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  checked={enableCredit}
+                  onChange={(e) => setEnableCredit(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-cyan-500 focus:ring-cyan-500"
+                />
+                <div className="text-xs space-y-0.5">
+                  <span className="font-semibold text-white flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5 text-cyan-400" />
+                    Turn-Collateralized Borrowing (Up to 75%)
+                  </span>
+                  <p className="text-zinc-400 text-[11px] leading-relaxed">
+                    Allows members to borrow against their scheduled future turn. Debt is auto-garnished by the smart contract upon their payout.
+                  </p>
+                </div>
+              </label>
+
+              {/* Toggle 3: Turn-Bidding Auction */}
+              <label className="flex items-start gap-3 p-2 rounded-xl hover:bg-white/[0.02] cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  checked={enableAuction}
+                  onChange={(e) => setEnableAuction(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500"
+                />
+                <div className="text-xs space-y-0.5">
+                  <span className="font-semibold text-white flex items-center gap-1.5">
+                    <Coins className="h-3.5 w-3.5 text-amber-400" />
+                    Turn-Bidding Auction (Discount for Immediate Liquidity)
+                  </span>
+                  <p className="text-zinc-400 text-[11px] leading-relaxed">
+                    Enables members needing urgent capital to bid an upfront discount, instantly distributed to other savers as cash dividends.
+                  </p>
+                </div>
+              </label>
+            </div>
+
             {/* Zero Gas Friction Notice */}
             <div className="rounded-2xl bg-emerald-950/20 border border-emerald-500/20 p-4 flex items-start gap-3">
               <Zap className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
@@ -348,6 +421,18 @@ export default function CreateVaultPage() {
                 <div className="flex justify-between text-zinc-400">
                   <span>Reentrancy Protection:</span>
                   <span className="text-emerald-400 font-semibold">OpenZeppelin V5</span>
+                </div>
+                <div className="flex justify-between text-zinc-400">
+                  <span>Yield Float Compounding:</span>
+                  <span className={enableYield ? "text-emerald-400 font-semibold" : "text-zinc-500"}>
+                    {enableYield ? "Active (~5.2% APY)" : "Disabled"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-zinc-400">
+                  <span>Turn-Collateralized Loans:</span>
+                  <span className={enableCredit ? "text-cyan-400 font-semibold" : "text-zinc-500"}>
+                    {enableCredit ? "Enabled (Up to 75%)" : "Disabled"}
+                  </span>
                 </div>
               </div>
             </div>

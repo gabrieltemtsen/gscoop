@@ -1,5 +1,10 @@
 import { parseUnits } from 'viem';
 
+export interface DiscountBidData {
+  bidder: `0x${string}`;
+  discountAmount: bigint;
+}
+
 export interface CoopVaultData {
   address: `0x${string}`;
   name: string;
@@ -16,13 +21,20 @@ export interface CoopVaultData {
   creator: `0x${string}`;
   members: `0x${string}`[];
   createdAt: number;
+  // Yield & Lending Extensions
+  yieldEnabled?: boolean;
+  yieldApy?: number;
+  accruedYield?: bigint;
+  reserveFund: bigint;
+  currentHighestBid?: DiscountBidData | null;
+  activeDebts?: Record<string, string>; // member address -> debt in stringified bigint
 }
 
 const DEFAULT_VAULTS: CoopVaultData[] = [
   {
     address: '0x13b2A5F89c8365dBd0a1b24147A9D6c3C0334001',
     name: 'Arc Builders Cooperative',
-    description: 'Weekly rotating savings for Web3 developers and builders on Arc Mainnet.',
+    description: 'Weekly rotating savings with automated 5.2% USDC yield float and instant credit access.',
     contributionAmount: parseUnits('100', 18),
     cycleDuration: BigInt(7 * 24 * 3600),
     cycleDeadline: BigInt(Math.floor(Date.now() / 1000) + 3 * 24 * 3600 + 4120),
@@ -41,11 +53,17 @@ const DEFAULT_VAULTS: CoopVaultData[] = [
       '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
     ],
     createdAt: Date.now() - 14 * 24 * 3600 * 1000,
+    yieldEnabled: true,
+    yieldApy: 5.2,
+    accruedYield: parseUnits('14.85', 18),
+    reserveFund: parseUnits('120', 18),
+    currentHighestBid: null,
+    activeDebts: {},
   },
   {
     address: '0x13b2B6409890fE897D8105c3639910D779184002',
     name: 'Global Nomad Reserve',
-    description: 'Automated 3-day liquidity rotation pool for global digital nomads.',
+    description: 'Automated 3-day liquidity rotation pool with emergency turn borrowing.',
     contributionAmount: parseUnits('25', 18),
     cycleDuration: BigInt(3 * 24 * 3600),
     cycleDeadline: BigInt(Math.floor(Date.now() / 1000) + 18 * 3600 + 200),
@@ -63,6 +81,12 @@ const DEFAULT_VAULTS: CoopVaultData[] = [
       '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
     ],
     createdAt: Date.now() - 6 * 24 * 3600 * 1000,
+    yieldEnabled: true,
+    yieldApy: 4.8,
+    accruedYield: parseUnits('4.10', 18),
+    reserveFund: parseUnits('65', 18),
+    currentHighestBid: null,
+    activeDebts: {},
   },
   {
     address: '0x13b2C924185790Ae74136274B61198A0b0014003',
@@ -89,6 +113,15 @@ const DEFAULT_VAULTS: CoopVaultData[] = [
       '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
     ],
     createdAt: Date.now() - 4 * 24 * 3600 * 1000,
+    yieldEnabled: true,
+    yieldApy: 5.5,
+    accruedYield: parseUnits('8.20', 18),
+    reserveFund: parseUnits('90', 18),
+    currentHighestBid: {
+      bidder: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
+      discountAmount: parseUnits('5', 18),
+    },
+    activeDebts: {},
   },
 ];
 
@@ -138,6 +171,15 @@ function serializeVaults(vaults: CoopVaultData[]) {
     memberCount: v.memberCount.toString(),
     maxMembers: v.maxMembers.toString(),
     cycleDeposits: v.cycleDeposits.toString(),
+    reserveFund: v.reserveFund.toString(),
+    accruedYield: v.accruedYield ? v.accruedYield.toString() : '0',
+    currentHighestBid: v.currentHighestBid
+      ? {
+          bidder: v.currentHighestBid.bidder,
+          discountAmount: v.currentHighestBid.discountAmount.toString(),
+        }
+      : null,
+    activeDebts: v.activeDebts || {},
   }));
 }
 
@@ -152,5 +194,14 @@ function deserializeVaults(rawList: any[]): CoopVaultData[] {
     memberCount: BigInt(item.memberCount),
     maxMembers: BigInt(item.maxMembers || 10),
     cycleDeposits: BigInt(item.cycleDeposits),
+    reserveFund: BigInt(item.reserveFund || '0'),
+    accruedYield: BigInt(item.accruedYield || '0'),
+    currentHighestBid: item.currentHighestBid
+      ? {
+          bidder: item.currentHighestBid.bidder,
+          discountAmount: BigInt(item.currentHighestBid.discountAmount),
+        }
+      : null,
+    activeDebts: item.activeDebts || {},
   }));
 }

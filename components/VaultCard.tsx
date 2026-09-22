@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CoopVaultData } from '@/lib/vaultStore';
 import { formatAddress, formatDuration, formatTimeRemaining, formatUSDC } from '@/lib/utils';
-import { Clock, Users, ArrowRight, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Clock, Users, ArrowRight, ShieldCheck, Sparkles, CheckCircle2, Zap, Coins } from 'lucide-react';
 
 interface VaultCardProps {
   vault: CoopVaultData;
@@ -55,8 +55,27 @@ export function VaultCard({ vault }: VaultCardProps) {
           </span>
         </div>
 
+        {/* Feature Badges: Yield Float & Credit Availability */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {vault.yieldEnabled && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+              <Zap className="h-3 w-3" />
+              <span>{vault.yieldApy || 5.0}% APY Float</span>
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1 rounded-md bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 text-[10px] font-semibold text-cyan-300">
+            <ShieldCheck className="h-3 w-3" />
+            <span>Turn-Credit Active</span>
+          </span>
+          {vault.currentHighestBid && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+              <span>Bid: ${formatUSDC(vault.currentHighestBid.discountAmount)} Off</span>
+            </span>
+          )}
+        </div>
+
         {/* Key Metrics Grid */}
-        <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-black/40 p-3.5 border border-white/[0.05]">
+        <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-black/40 p-3.5 border border-white/[0.05]">
           <div>
             <p className="text-[11px] text-zinc-400">Contribution / Cycle</p>
             <p className="text-base font-bold text-emerald-400 font-mono">
@@ -112,6 +131,18 @@ export function VaultCard({ vault }: VaultCardProps) {
               {formatAddress(vault.beneficiary)}
             </span>
           </div>
+
+          {vault.reserveFund > BigInt(0) && (
+            <div className="flex items-center justify-between pt-1 border-t border-white/[0.04] text-[11px]">
+              <span className="text-zinc-400 flex items-center gap-1.5">
+                <Coins className="h-3 w-3 text-cyan-400" />
+                Reserve / Credit Pool:
+              </span>
+              <span className="font-mono text-cyan-400 font-semibold">
+                ${formatUSDC(vault.reserveFund)} USDC
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -119,7 +150,7 @@ export function VaultCard({ vault }: VaultCardProps) {
       <div className="mt-6 pt-4 border-t border-white/[0.06] flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-          <span>Deterministic Payout</span>
+          <span>Auto-Garnished Debt</span>
         </div>
 
         <Link
