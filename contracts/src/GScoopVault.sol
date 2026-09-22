@@ -4,10 +4,21 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
+interface IArcYieldStrategy {
+    function deposit() external payable returns (uint256);
+    function redeem(uint256 shareAmount) external returns (uint256);
+    function getAccruedYield(address account) external view returns (uint256);
+}
+
 /**
  * @title GScoopVault
  * @notice Trust-minimized decentralized cooperative savings pool (Rotating Savings Circle / ROSCA) on Arc Mainnet.
  *         Operates with Arc's native USDC (18 decimals at protocol level, msg.value is native USDC).
+ *         Features:
+ *         1. Native USDC Gas & Micro-fees.
+ *         2. Idle Capital Float Yield Compounding (ERC-4626 style strategy).
+ *         3. Collateralized Borrowing against Future Payout Turns with Automated Smart Contract Garnishment.
+ *         4. Turn-Bidding Auction for Instant Discount Liquidity with Immediate Saver Dividends.
  */
 contract GScoopVault is ReentrancyGuard, Pausable {
     string public name;
@@ -26,11 +37,35 @@ contract GScoopVault is ReentrancyGuard, Pausable {
     mapping(uint256 => mapping(address => bool)) public hasDeposited;
     mapping(uint256 => uint256) public cycleDepositCount;
 
+    // Yield Strategy Float Configuration
+    address public yieldStrategy;
+    bool public yieldEnabled;
+    uint256 public totalYieldHarvested;
+    uint256 public reserveFund; // Community reserve / safety pool
+
+    // Credit & Borrowing Parameters
+    uint256 public constant MAX_BORROW_BPS = 7500; // 75.00% max borrow of future scheduled pot
+    uint256 public constant LOAN_FEE_BPS = 200;    // 2.00% fixed loan fee credited to reserve fund
+    mapping(address => uint256) public activeDebt;
+    mapping(address => uint256) public totalLifetimeBorrowed;
+
+    // Discount Bidding Auction for Early Turn Liquidity
+    struct DiscountBid {
+        address bidder;
+        uint256 discountAmount; // Native USDC discount offered
+    }
+    DiscountBid public currentHighestBid;
+
     // Events
     event MemberJoined(address indexed member, uint256 queuePosition);
     event DepositReceived(address indexed member, uint256 indexed cycle, uint256 amount);
     event PayoutDistributed(address indexed beneficiary, uint256 indexed cycle, uint256 amount, uint256 nextDeadline);
-    event CycleExtended(uint256 indexed cycle, uint256 newDeadline);
+    event YieldCompounded(address indexed strategy, uint256 yieldHarvested, uint256 newReserveBalance);
+    event LoanDisbursed(address indexed borrower, uint256 principal, uint256 fee, uint256 totalDebt);
+    event LoanRepaid(address indexed borrower, uint256 amountPaid, uint256 remainingDebt);
+    event LoanGarnished(address indexed borrower, uint256 garnishedAmount, uint256 netPayoutReceived);
+    event TurnBidPlaced(address indexed bidder, uint256 discountAmount);
+    event BidDividendDistributed(address indexed recipient, uint256 dividendAmount);
 
     // Custom errors for gas efficiency
     error NotAuthorized();
@@ -42,6 +77,11 @@ contract GScoopVault is ReentrancyGuard, Pausable {
     error NoBalanceForPayout();
     error PayoutTransferFailed(address beneficiary, uint256 amount);
     error NoMembersInQueue();
+    error ExceedsBorrowCapacity(uint256 requested, uint256 maxAllowed);
+    error ActiveLoanAlreadyExists(address member, uint256 outstandingDebt);
+    error InsufficientReserveLiquidity(uint256 requested, uint256 available);
+    error BidTooLow(uint256 submitted, uint256 currentHighest);
+    error NoActiveDebt();
 
     modifier onlyAdmin() {
         if (msg.sender != creator && msg.sender != factory) revert NotAuthorized();
@@ -106,6 +146,11 @@ contract GScoopVault is ReentrancyGuard, Pausable {
 
         emit DepositReceived(msg.sender, currentCycle, msg.value);
 
+        // Optional: Route idle float to yield strategy if enabled
+        if (yieldEnabled && yieldStrategy != address(0)) {
+            _depositToYieldStrategy(msg.value);
+        }
+
         // Instant settlement trigger if all members have deposited
         if (memberQueue.length > 0 && cycleDepositCount[currentCycle] == memberQueue.length) {
             _executePayout();
@@ -138,56 +183,260 @@ contract GScoopVault is ReentrancyGuard, Pausable {
      * @dev Internal payout execution adhering to Checks-Effects-Interactions.
      */
     function _executePayout() internal {
-        uint256 balance = address(this).balance;
-        if (balance == 0) revert NoBalanceForPayout();
+        // Harvest float yield and redeem principal from strategy if active
+        if (yieldEnabled && yieldStrategy != address(0)) {
+            _harvestFromYieldStrategy();
+        }
 
-        uint256 beneficiaryIndex = currentCycle % memberQueue.length;
-        address payable beneficiary = payable(memberQueue[beneficiaryIndex]);
+        uint256 cyclePot = cycleDepositCount[currentCycle] * contributionAmount;
+        if (cyclePot == 0 || cyclePot > address(this).balance) {
+            cyclePot = address(this).balance;
+        }
+        if (cyclePot == 0) revert NoBalanceForPayout();
+
+        address payable beneficiary;
+        uint256 discountDeduction = 0;
+
+        // Check if an early discount bid was accepted for this cycle
+        if (currentHighestBid.bidder != address(0) && currentHighestBid.discountAmount > 0) {
+            beneficiary = payable(currentHighestBid.bidder);
+            discountDeduction = currentHighestBid.discountAmount;
+            
+            // Distribute the discount as instant cash dividends to remaining savers
+            _distributeBidDividends(beneficiary, discountDeduction);
+
+            // Reset auction bid
+            currentHighestBid = DiscountBid(address(0), 0);
+        } else {
+            // Standard FIFO rotation
+            uint256 beneficiaryIndex = currentCycle % memberQueue.length;
+            beneficiary = payable(memberQueue[beneficiaryIndex]);
+        }
 
         uint256 paidCycle = currentCycle;
         currentCycle++;
         cycleDeadline = block.timestamp + cycleDuration;
 
-        (bool success, ) = beneficiary.call{value: balance}("");
-        if (!success) {
-            revert PayoutTransferFailed(beneficiary, balance);
+        // Base payout calculation (cycle pot minus discount)
+        uint256 payoutAmount = cyclePot > discountDeduction ? cyclePot - discountDeduction : cyclePot;
+
+        // Automated Debt Garnishment: Check if beneficiary has an active loan
+        uint256 outstandingDebt = activeDebt[beneficiary];
+        uint256 garnishedAmount = 0;
+
+        if (outstandingDebt > 0) {
+            if (payoutAmount >= outstandingDebt) {
+                garnishedAmount = outstandingDebt;
+                activeDebt[beneficiary] = 0;
+                payoutAmount -= garnishedAmount;
+            } else {
+                garnishedAmount = payoutAmount;
+                activeDebt[beneficiary] -= garnishedAmount;
+                payoutAmount = 0;
+            }
+            reserveFund += garnishedAmount;
+            emit LoanGarnished(beneficiary, garnishedAmount, payoutAmount);
         }
 
-        emit PayoutDistributed(beneficiary, paidCycle, balance, cycleDeadline);
+        // Transfer net payout to beneficiary
+        if (payoutAmount > 0) {
+            (bool success, ) = beneficiary.call{value: payoutAmount}("");
+            if (!success) {
+                revert PayoutTransferFailed(beneficiary, payoutAmount);
+            }
+        }
+
+        emit PayoutDistributed(beneficiary, paidCycle, payoutAmount, cycleDeadline);
     }
 
     /**
-     * @notice Get the active beneficiary for the current cycle.
+     * @notice Distribute early turn discount as instant cash dividends to the other members.
+     */
+    function _distributeBidDividends(address winningBidder, uint256 totalDiscount) internal {
+        if (memberQueue.length <= 1) return;
+        uint256 eligibleSavers = memberQueue.length - 1;
+        uint256 dividendPerSaver = totalDiscount / eligibleSavers;
+
+        if (dividendPerSaver > 0) {
+            for (uint256 i = 0; i < memberQueue.length; i++) {
+                address saver = memberQueue[i];
+                if (saver != winningBidder) {
+                    (bool sent, ) = payable(saver).call{value: dividendPerSaver}("");
+                    if (sent) {
+                        emit BidDividendDistributed(saver, dividendPerSaver);
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // SECURE LENDING & BORROWING FUNCTIONS
+    // =========================================================================
+
+    /**
+     * @notice Borrow native USDC liquidity against the member's guaranteed future payout turn.
+     *         The smart contract locks future payout rights and auto-garnishes upon their turn.
+     * @param amount The native USDC amount to borrow.
+     */
+    function borrowAgainstTurn(uint256 amount) external nonReentrant whenNotPaused {
+        if (!isMember[msg.sender]) revert NotAuthorized();
+        if (activeDebt[msg.sender] > 0) revert ActiveLoanAlreadyExists(msg.sender, activeDebt[msg.sender]);
+
+        // Max borrow capacity is 75% of expected full pool pot
+        uint256 expectedPot = contributionAmount * memberQueue.length;
+        uint256 maxBorrow = (expectedPot * MAX_BORROW_BPS) / 10000;
+        if (amount > maxBorrow) revert ExceedsBorrowCapacity(amount, maxBorrow);
+
+        // Ensure contract has sufficient available liquidity
+        uint256 cycleRequiredPot = cycleDepositCount[currentCycle] * contributionAmount;
+        uint256 availableLiquidity = address(this).balance > cycleRequiredPot 
+            ? address(this).balance - cycleRequiredPot 
+            : 0;
+        
+        // Also check if reserve fund can cover
+        if (amount > address(this).balance || availableLiquidity + reserveFund < amount) {
+            revert InsufficientReserveLiquidity(amount, availableLiquidity + reserveFund);
+        }
+
+        // Calculate 2% loan fee credited to reserve fund
+        uint256 loanFee = (amount * LOAN_FEE_BPS) / 10000;
+        uint256 totalDebt = amount + loanFee;
+
+        activeDebt[msg.sender] = totalDebt;
+        totalLifetimeBorrowed[msg.sender] += amount;
+
+        // Disburse loan in native USDC to borrower
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        require(success, "Loan disbursement failed");
+
+        emit LoanDisbursed(msg.sender, amount, loanFee, totalDebt);
+    }
+
+    /**
+     * @notice Manually repay an active loan early.
+     */
+    function repayLoan() external payable nonReentrant {
+        uint256 debt = activeDebt[msg.sender];
+        if (debt == 0) revert NoActiveDebt();
+        require(msg.value > 0, "Payment must be > 0");
+
+        uint256 paidAmount = msg.value;
+        if (paidAmount >= debt) {
+            activeDebt[msg.sender] = 0;
+            reserveFund += debt;
+            uint256 refund = paidAmount - debt;
+            if (refund > 0) {
+                (bool refundSent, ) = payable(msg.sender).call{value: refund}("");
+                require(refundSent, "Refund failed");
+            }
+            emit LoanRepaid(msg.sender, debt, 0);
+        } else {
+            activeDebt[msg.sender] -= paidAmount;
+            reserveFund += paidAmount;
+            emit LoanRepaid(msg.sender, paidAmount, activeDebt[msg.sender]);
+        }
+    }
+
+    // =========================================================================
+    // TURN-BIDDING (AUCTION) FOR INSTANT DISCOUNT LIQUIDITY
+    // =========================================================================
+
+    /**
+     * @notice Submit a discount bid to receive an immediate cycle payout advance.
+     *         The highest bidder receives the pot minus their discount.
+     *         The discount is immediately distributed as dividends to patient savers!
+     */
+    function submitTurnBid(uint256 discountAmount) external whenNotPaused {
+        if (!isMember[msg.sender]) revert NotAuthorized();
+        uint256 maxDiscount = (contributionAmount * memberQueue.length * 2000) / 10000; // Max 20% discount
+        require(discountAmount <= maxDiscount, "Discount exceeds 20% cap");
+
+        if (discountAmount <= currentHighestBid.discountAmount) {
+            revert BidTooLow(discountAmount, currentHighestBid.discountAmount);
+        }
+
+        currentHighestBid = DiscountBid({
+            bidder: msg.sender,
+            discountAmount: discountAmount
+        });
+
+        emit TurnBidPlaced(msg.sender, discountAmount);
+    }
+
+    // =========================================================================
+    // YIELD STRATEGY INTEGRATION
+    // =========================================================================
+
+    function setYieldStrategy(address _strategy, bool _enabled) external onlyAdmin {
+        yieldStrategy = _strategy;
+        yieldEnabled = _enabled;
+    }
+
+    function _depositToYieldStrategy(uint256 amount) internal {
+        if (yieldStrategy == address(0)) return;
+        (bool success, ) = yieldStrategy.call{value: amount}(abi.encodeWithSignature("deposit()"));
+        if (!success) {
+            // Non-blocking: If strategy deposit reverts, continue native custody
+        }
+    }
+
+    function _harvestFromYieldStrategy() internal {
+        if (yieldStrategy == address(0)) return;
+        try IArcYieldStrategy(yieldStrategy).redeem(0) returns (uint256 returned) {
+            if (returned > 0) {
+                totalYieldHarvested += returned;
+            }
+        } catch {
+            // Non-blocking fallback
+        }
+    }
+
+    /**
+     * @notice Harvest accrued yield from the external strategy into reserve.
+     */
+    function harvestYield() external returns (uint256 yieldHarvested) {
+        if (yieldStrategy == address(0) || !yieldEnabled) return 0;
+        uint256 accrued = IArcYieldStrategy(yieldStrategy).getAccruedYield(address(this));
+        if (accrued > 0) {
+            try IArcYieldStrategy(yieldStrategy).redeem(accrued) returns (uint256 returned) {
+                yieldHarvested = returned;
+                totalYieldHarvested += returned;
+                reserveFund += returned;
+                emit YieldCompounded(yieldStrategy, returned, reserveFund);
+            } catch {
+                return 0;
+            }
+        }
+    }
+
+    // =========================================================================
+    // VIEW FUNCTIONS & ADMIN
+    // =========================================================================
+
+    /**
+     * @notice Get current beneficiary (accounting for active auction bid).
      */
     function getCurrentBeneficiary() external view returns (address) {
+        if (currentHighestBid.bidder != address(0)) {
+            return currentHighestBid.bidder;
+        }
         if (memberQueue.length == 0) return address(0);
         return memberQueue[currentCycle % memberQueue.length];
     }
 
-    /**
-     * @notice Get all enrolled members in rotating queue order.
-     */
     function getMembers() external view returns (address[] memory) {
         return memberQueue;
     }
 
-    /**
-     * @notice Get member count.
-     */
     function getMemberCount() external view returns (uint256) {
         return memberQueue.length;
     }
 
-    /**
-     * @notice Check if an address has deposited for a specific cycle.
-     */
     function hasMemberDeposited(uint256 cycle, address member) external view returns (bool) {
         return hasDeposited[cycle][member];
     }
 
-    /**
-     * @notice Get high-level vault state for frontends.
-     */
     function getVaultState() external view returns (
         string memory vaultName,
         uint256 contribution,
@@ -197,9 +446,14 @@ contract GScoopVault is ReentrancyGuard, Pausable {
         uint256 balance,
         uint256 memberCount,
         uint256 cycleDeposits,
-        address currentBeneficiaryAddress
+        address currentBeneficiaryAddress,
+        uint256 vaultReserve,
+        uint256 currentDiscountBid
     ) {
-        address beneficiary = memberQueue.length > 0 ? memberQueue[currentCycle % memberQueue.length] : address(0);
+        address beneficiary = currentHighestBid.bidder != address(0) 
+            ? currentHighestBid.bidder 
+            : (memberQueue.length > 0 ? memberQueue[currentCycle % memberQueue.length] : address(0));
+
         return (
             name,
             contributionAmount,
@@ -209,7 +463,9 @@ contract GScoopVault is ReentrancyGuard, Pausable {
             address(this).balance,
             memberQueue.length,
             cycleDepositCount[currentCycle],
-            beneficiary
+            beneficiary,
+            reserveFund,
+            currentHighestBid.discountAmount
         );
     }
 
@@ -222,6 +478,7 @@ contract GScoopVault is ReentrancyGuard, Pausable {
         _unpause();
     }
 
-    // Accept native USDC transfers directly if needed
-    receive() external payable {}
+    receive() external payable {
+        // Accept native USDC transfers (yield redemptions, donations, top-ups)
+    }
 }

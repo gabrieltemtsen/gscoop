@@ -1,4 +1,4 @@
-// Auto-generated ABI and contract constants for GScoop
+// Auto-generated ABI and contract constants for GScoop with Yield & Secure Lending
 export const FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_FACTORY_ADDRESS || "0x5C0099413289069d6771F524584285b0b6e16f39") as `0x${string}`;
 
 export const GSCOOP_FACTORY_ABI = [
@@ -260,6 +260,64 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "function",
+    "name": "LOAN_FEE_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_BORROW_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "activeDebt",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "borrowAgainstTurn",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "contributionAmount",
     "inputs": [],
     "outputs": [
@@ -291,6 +349,24 @@ export const GSCOOP_VAULT_ABI = [
     "outputs": [
       {
         "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "currentHighestBid",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "discountAmount",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -457,9 +533,32 @@ export const GSCOOP_VAULT_ABI = [
         "name": "currentBeneficiaryAddress",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "vaultReserve",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentDiscountBid",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "harvestYield",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "yieldHarvested",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -621,23 +720,132 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "function",
+    "name": "repayLoan",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "reserveFund",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setYieldStrategy",
+    "inputs": [
+      {
+        "name": "_strategy",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_enabled",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "submitTurnBid",
+    "inputs": [
+      {
+        "name": "discountAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "totalLifetimeBorrowed",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalYieldHarvested",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "unpause",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
+    "type": "function",
+    "name": "yieldEnabled",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "yieldStrategy",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
     "type": "event",
-    "name": "CycleExtended",
+    "name": "BidDividendDistributed",
     "inputs": [
       {
-        "name": "cycle",
-        "type": "uint256",
+        "name": "recipient",
+        "type": "address",
         "indexed": true,
-        "internalType": "uint256"
+        "internalType": "address"
       },
       {
-        "name": "newDeadline",
+        "name": "dividendAmount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -663,6 +871,87 @@ export const GSCOOP_VAULT_ABI = [
       },
       {
         "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "LoanDisbursed",
+    "inputs": [
+      {
+        "name": "borrower",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "principal",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "fee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalDebt",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "LoanGarnished",
+    "inputs": [
+      {
+        "name": "borrower",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "garnishedAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "netPayoutReceived",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "LoanRepaid",
+    "inputs": [
+      {
+        "name": "borrower",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amountPaid",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "remainingDebt",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -735,6 +1024,25 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "event",
+    "name": "TurnBidPlaced",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "discountAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Unpaused",
     "inputs": [
       {
@@ -747,9 +1055,66 @@ export const GSCOOP_VAULT_ABI = [
     "anonymous": false
   },
   {
+    "type": "event",
+    "name": "YieldCompounded",
+    "inputs": [
+      {
+        "name": "strategy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "yieldHarvested",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newReserveBalance",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "ActiveLoanAlreadyExists",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "outstandingDebt",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
     "type": "error",
     "name": "AlreadyMember",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BidTooLow",
+    "inputs": [
+      {
+        "name": "submitted",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentHighest",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
@@ -800,6 +1165,22 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "error",
+    "name": "ExceedsBorrowCapacity",
+    "inputs": [
+      {
+        "name": "requested",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxAllowed",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ExpectedPause",
     "inputs": []
   },
@@ -821,7 +1202,28 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "error",
+    "name": "InsufficientReserveLiquidity",
+    "inputs": [
+      {
+        "name": "requested",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "available",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "MaxMembersReached",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoActiveDebt",
     "inputs": []
   },
   {
@@ -873,6 +1275,9 @@ export interface VaultMetadata {
   memberCount: bigint;
   cycleDeposits: bigint;
   beneficiary: `0x${string}`;
+  reserveFund?: bigint;
+  currentDiscountBid?: bigint;
+  activeDebt?: bigint;
   isUserMember?: boolean;
   hasUserDeposited?: boolean;
 }
