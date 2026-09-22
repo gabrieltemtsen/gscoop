@@ -10,11 +10,7 @@ import {
   VolumeX, 
   ShieldCheck, 
   Zap, 
-  Coins, 
-  Key, 
-  Settings, 
-  ExternalLink,
-  CheckCircle2
+  Coins
 } from 'lucide-react';
 
 interface AIAssistantModalProps {
@@ -38,6 +34,10 @@ const INITIAL_MESSAGES: Message[] = [
 ];
 
 const PRESET_TOPICS = [
+  {
+    label: '👥 Large Member Pools & Scaling',
+    prompt: 'Why can a GScoop cooperative vault have 50 or 100+ members when traditional savings circles cannot?',
+  },
   {
     label: '💰 Earning Yield & Loans',
     prompt: 'How can cooperative cycles earn on their savings and how can loans be securely taken?',
@@ -65,20 +65,24 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [speechEnabled, setSpeechEnabled] = useState(false);
-  const [showKeyConfig, setShowKeyConfig] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState('');
-  const [savedApiKey, setSavedApiKey] = useState('');
   const [isRealGeminiActive, setIsRealGeminiActive] = useState(false);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
+  // Check server environment capability on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('gscoop_gemini_api_key') || '';
-      setSavedApiKey(stored);
-      setApiKeyInput(stored);
-      if (stored) setIsRealGeminiActive(true);
+    async function checkServerKey() {
+      try {
+        const res = await fetch('/api/chat');
+        const data = await res.json();
+        if (data.hasRealGeminiKey) {
+          setIsRealGeminiActive(true);
+        }
+      } catch (e) {
+        // Fallback gracefully to cooperative engine
+      }
     }
+    checkServerKey();
   }, []);
 
   useEffect(() => {
@@ -98,25 +102,24 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
     window.speechSynthesis.speak(utterance);
   };
 
-  const handleSaveApiKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanKey = apiKeyInput.trim();
-    setSavedApiKey(cleanKey);
-    if (typeof window !== 'undefined') {
-      if (cleanKey) {
-        localStorage.setItem('gscoop_gemini_api_key', cleanKey);
-        setIsRealGeminiActive(true);
-      } else {
-        localStorage.removeItem('gscoop_gemini_api_key');
-        setIsRealGeminiActive(false);
-      }
-    }
-    setShowKeyConfig(false);
-  };
-
-  // Local expert fallback generator if real Gemini API key is not yet set
+  // Local expert fallback generator
   const generateFallbackAnswer = (question: string): string => {
     const q = question.toLowerCase();
+
+    if (q.includes('member') || q.includes('big') || q.includes('scale') || q.includes('capacity') || q.includes('size') || q.includes('limit')) {
+      return (
+        "**Why Can Cooperative Vaults Have a Bigger Number of Members on Arc?**\n\n" +
+        "In traditional informal savings circles, groups are typically capped at 5–12 members due to three fundamental bottlenecks:\n\n" +
+        "1. **Payout Wait-Time Latency**: In a 50-person group with weekly cycles, the 50th person would have to wait 50 weeks (almost a full year!) for their turn.\n" +
+        "2. **Human Treasurer Bookkeeping Fatigue**: Tracking contributions, payments, and cash reconciliations for 50+ participants is prone to human error and default risk.\n" +
+        "3. **Social Trust Decay**: In offline groups, trust rapidly decays as group size expands beyond close social circles.\n\n" +
+        "**How GScoop on Arc Mainnet Overcomes This for 50–100+ Member Vaults:**\n\n" +
+        "• **High-Frequency Micro-Cycles**: On Arc Mainnet, transaction fees are fractions of a cent (~$0.005) with sub-second finality. This allows **Daily (24h) or 12h cycles**. A 50-member pool with daily cycles completes its full rotation in just 50 days!\n" +
+        "• **Turn-Collateralized Borrowing**: A saver placed at turn #45 doesn't need to wait 45 cycles to access capital. They can borrow up to 75% of their future payout today, auto-garnished when their turn arrives.\n" +
+        "• **Turn-Bidding Auctions**: Members with immediate liquidity needs can bid a discount to claim an early cycle pot with zero default risk.\n" +
+        "• **O(1) Gas-Safe Architecture**: `GScoopVault.sol` automatically routes discount dividends to the community reserve for pools with >15 members, keeping EVM execution fees strictly constant."
+      );
+    }
 
     if (q.includes('gas') || q.includes('usdc') || q.includes('friction') || q.includes('native')) {
       return (
@@ -185,16 +188,14 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
     setIsTyping(true);
 
     try {
-      // Attempt call to Real Gemini via /api/chat
+      // Call server /api/chat which uses process.env.GEMINI_API_KEY
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(savedApiKey ? { 'x-gemini-api-key': savedApiKey } : {}),
         },
         body: JSON.stringify({
           messages: newHistory,
-          apiKey: savedApiKey,
         }),
       });
 
@@ -260,7 +261,7 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
                 {isRealGeminiActive ? (
                   <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/25">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    <span>Gemini 2.5 Flash</span>
+                    <span>Gemini 2.5 Flash Connected</span>
                   </span>
                 ) : (
                   <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-400 border border-cyan-500/20">
@@ -273,19 +274,6 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* Key Settings Button */}
-            <button
-              onClick={() => setShowKeyConfig(!showKeyConfig)}
-              className={`p-2 rounded-lg border transition-all ${
-                savedApiKey
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                  : 'border-white/[0.06] text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-              }`}
-              title="Configure Google Gemini API Key"
-            >
-              <Key className="h-4 w-4" />
-            </button>
-
             {/* Speech synthesis toggle */}
             <button
               onClick={() => {
@@ -308,55 +296,12 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
             {/* Close */}
             <button
               onClick={onClose}
-              className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+              className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
         </div>
-
-        {/* API Key Configuration Dropdown */}
-        {showKeyConfig && (
-          <div className="p-4 bg-[#14141a] border-b border-white/[0.08] animate-in fade-in slide-in-from-top-2 duration-200">
-            <form onSubmit={handleSaveApiKey} className="space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-white flex items-center gap-1.5">
-                  <Key className="h-3.5 w-3.5 text-emerald-400" />
-                  Connect Real Google Gemini 2.5 Flash
-                </span>
-                <a
-                  href="https://aistudio.google.com/app/apikey"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-cyan-400 hover:underline flex items-center gap-1"
-                >
-                  <span>Get Free Key</span>
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="password"
-                  value={apiKeyInput}
-                  onChange={(e) => setApiKeyInput(e.target.value)}
-                  placeholder="Paste your Gemini API Key (or set GEMINI_API_KEY in .env.local)..."
-                  className="flex-1 rounded-xl border border-white/[0.1] bg-black/60 px-3.5 py-2 text-xs font-mono text-white placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none"
-                />
-                <button
-                  type="submit"
-                  className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-black hover:bg-emerald-400 transition-colors"
-                >
-                  Save
-                </button>
-              </div>
-
-              <p className="text-[11px] text-zinc-400">
-                Key is stored securely in your browser session or can be specified via <code className="text-zinc-200">GEMINI_API_KEY</code> on your server.
-              </p>
-            </form>
-          </div>
-        )}
 
         {/* Quick Topics */}
         <div className="flex items-center gap-2 px-6 py-2.5 border-b border-white/[0.04] bg-[#0f0f13] overflow-x-auto no-scrollbar">

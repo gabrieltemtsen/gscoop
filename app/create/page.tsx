@@ -33,7 +33,7 @@ const DURATION_PRESETS = [
 ];
 
 const CONTRIBUTION_PRESETS = ['10', '25', '50', '100', '250'];
-const MEMBER_PRESETS = [3, 5, 8, 10, 12];
+const MEMBER_PRESETS = [5, 10, 25, 50, 100];
 
 export default function CreateVaultPage() {
   const router = useRouter();
@@ -44,7 +44,8 @@ export default function CreateVaultPage() {
   const [description, setDescription] = useState('');
   const [contribution, setContribution] = useState('50');
   const [cycleDuration, setCycleDuration] = useState(7 * 86400);
-  const [maxMembers, setMaxMembers] = useState(5);
+  const [maxMembers, setMaxMembers] = useState(10);
+  const [isCustomMember, setIsCustomMember] = useState(false);
   const [enableYield, setEnableYield] = useState(true);
   const [enableCredit, setEnableCredit] = useState(true);
   const [enableAuction, setEnableAuction] = useState(true);
@@ -56,8 +57,8 @@ export default function CreateVaultPage() {
 
   // Financial calculations
   const numContribution = parseFloat(contribution) || 0;
-  const totalPot = numContribution * maxMembers;
-  const fullRotationDays = Math.round((cycleDuration * maxMembers) / 86400);
+  const totalPot = maxMembers > 0 ? numContribution * maxMembers : numContribution;
+  const fullRotationDays = maxMembers > 0 ? Math.round((cycleDuration * maxMembers) / 86400) : 0;
 
   const handleDeploy = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,25 +251,93 @@ export default function CreateVaultPage() {
 
             {/* Max Members */}
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-                Max Member Capacity *
-              </label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                  Max Member Capacity *
+                </label>
+                <span className="text-[11px] text-cyan-400 font-mono">
+                  {maxMembers === 0 ? 'Open / Unlimited' : `${maxMembers} Participants`}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 {MEMBER_PRESETS.map((count) => (
                   <button
                     key={count}
                     type="button"
-                    onClick={() => setMaxMembers(count)}
-                    className={`flex-1 rounded-xl py-2.5 text-xs font-semibold border transition-all ${
-                      maxMembers === count
+                    onClick={() => {
+                      setMaxMembers(count);
+                      setIsCustomMember(false);
+                    }}
+                    className={`rounded-xl py-2.5 text-xs font-semibold border transition-all ${
+                      !isCustomMember && maxMembers === count
                         ? 'border-cyan-500 bg-cyan-500/20 text-cyan-300 shadow-md shadow-cyan-500/10'
                         : 'border-white/[0.08] bg-[#0c0c0e] text-zinc-400 hover:text-white'
                     }`}
                   >
-                    {count} Members
+                    {count}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setIsCustomMember(true)}
+                  className={`rounded-xl py-2.5 text-xs font-semibold border transition-all ${
+                    isCustomMember
+                      ? 'border-cyan-500 bg-cyan-500/20 text-cyan-300 shadow-md shadow-cyan-500/10'
+                      : 'border-white/[0.08] bg-[#0c0c0e] text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Custom
+                </button>
               </div>
+
+              {isCustomMember && (
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min="2"
+                      max="1000"
+                      value={maxMembers}
+                      onChange={(e) => setMaxMembers(Math.max(2, parseInt(e.target.value) || 2))}
+                      placeholder="e.g. 50"
+                      className="w-full rounded-xl border border-cyan-500/40 bg-[#0c0c0e] px-4 py-2 text-xs font-mono text-white placeholder:text-zinc-500 focus:border-cyan-500 focus:outline-none"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-zinc-400 font-mono">
+                      members
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMaxMembers(0);
+                      setIsCustomMember(true);
+                    }}
+                    className={`px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
+                      maxMembers === 0
+                        ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
+                        : 'border-white/[0.08] bg-[#0c0c0e] text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    Unlimited (0)
+                  </button>
+                </div>
+              )}
+
+              {/* Dynamic Advisory for Large Pools */}
+              {maxMembers >= 20 && (
+                <div className="mt-3 rounded-xl bg-cyan-950/20 border border-cyan-500/20 p-3 flex items-start gap-2.5">
+                  <Users className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
+                  <div className="text-[11px] space-y-1 text-zinc-300 leading-relaxed">
+                    <p className="font-semibold text-cyan-300">
+                      High-Capacity Cooperative Circle ({maxMembers} Members)
+                    </p>
+                    <p className="text-zinc-400">
+                      Traditional savings groups cap members at 5–12 due to long wait times. On Arc Mainnet, micro-network fees (~$0.005) enable <strong>Daily (24h) or 3-day rotations</strong>, completing a full circle in just {Math.round((cycleDuration * maxMembers) / 86400)} days. Late-queue members can also use <strong>Turn-Collateralized Borrowing (up to 75%)</strong> or <strong>Turn Auctions</strong> to access immediate capital without waiting months!
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Yield & Credit Features */}
@@ -400,7 +469,11 @@ export default function CreateVaultPage() {
                 <div>
                   <span className="text-[11px] text-zinc-400">Total Pot / Cycle</span>
                   <p className="text-lg font-bold text-cyan-400 font-mono mt-0.5">
-                    ${totalPot.toFixed(2)} <span className="text-xs text-zinc-400">USDC</span>
+                    {maxMembers > 0 ? (
+                      <>${totalPot.toFixed(2)} <span className="text-xs text-zinc-400">USDC</span></>
+                    ) : (
+                      <>Dynamic <span className="text-xs text-zinc-400">(Open)</span></>
+                    )}
                   </p>
                 </div>
               </div>
@@ -412,7 +485,9 @@ export default function CreateVaultPage() {
                 </div>
                 <div className="flex justify-between text-zinc-400">
                   <span>Full Circle Rotation:</span>
-                  <span className="text-zinc-200 font-semibold">{fullRotationDays} Days ({maxMembers} cycles)</span>
+                  <span className="text-zinc-200 font-semibold">
+                    {maxMembers > 0 ? `${fullRotationDays} Days (${maxMembers} cycles)` : 'Continuous Rotating Cycle'}
+                  </span>
                 </div>
                 <div className="flex justify-between text-zinc-400">
                   <span>Queue Settlement:</span>

@@ -258,14 +258,22 @@ contract GScoopVault is ReentrancyGuard, Pausable {
         uint256 dividendPerSaver = totalDiscount / eligibleSavers;
 
         if (dividendPerSaver > 0) {
-            for (uint256 i = 0; i < memberQueue.length; i++) {
-                address saver = memberQueue[i];
-                if (saver != winningBidder) {
-                    (bool sent, ) = payable(saver).call{value: dividendPerSaver}("");
-                    if (sent) {
-                        emit BidDividendDistributed(saver, dividendPerSaver);
+            // For small pools (<= 15 members), execute direct instant cash transfers
+            if (memberQueue.length <= 15) {
+                for (uint256 i = 0; i < memberQueue.length; i++) {
+                    address saver = memberQueue[i];
+                    if (saver != winningBidder) {
+                        (bool sent, ) = payable(saver).call{value: dividendPerSaver}("");
+                        if (sent) {
+                            emit BidDividendDistributed(saver, dividendPerSaver);
+                        }
                     }
                 }
+            } else {
+                // Scalable O(1) constant-gas path for large pools (20, 50, 100+ members):
+                // Credit discount directly to the shared community reserveFund, preventing unbounded gas loops
+                reserveFund += totalDiscount;
+                emit BidDividendDistributed(address(this), totalDiscount);
             }
         }
     }

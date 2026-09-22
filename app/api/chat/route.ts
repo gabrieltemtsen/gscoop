@@ -28,24 +28,35 @@ Your Core Knowledge Base:
 5. Turn-Bidding Auctions (Zero-Default Advance):
    - Members needing immediate cash can submit a discount bid. The highest bidder takes the cycle pot early, and the discount is instantly distributed as cash dividends to the remaining savers.
 
+6. Large Member Pools & Scalability (25, 50, 100+ Members):
+   - Traditional informal savings circles stay small (5-12 members) due to human treasurer mental burden, trust decay, and long wait times (50 members on weekly cycles = waiting nearly an entire year for your turn).
+   - On Arc Mainnet, GScoop scales to large pools seamlessly:
+     a) High-frequency micro-cycles (Daily 24h or 3-day rotations enabled by Arc's $0.005 USDC transaction fees and sub-second finality).
+     b) Turn-collateralized borrowing (borrow up to 75% immediately, eliminating the wait-time penalty).
+     c) Turn-bidding auctions (bid for an early pot advance with zero default risk).
+     d) O(1) constant-gas scaling in GScoopVault.sol to ensure zero EVM gas spikes regardless of pool size.
+
 Format your responses concisely using clean Markdown. Be encouraging, clear, and mathematically accurate.`;
+
+export async function GET() {
+  const hasKey = !!(process.env.GEMINI_API_KEY?.trim() || process.env.NEXT_PUBLIC_GEMINI_API_KEY?.trim());
+  return NextResponse.json({ hasRealGeminiKey: hasKey });
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { messages, apiKey: clientApiKey } = body;
+    const { messages } = body;
 
-    // Resolve API Key: client provided > env var
+    // Pure server-side environment variable resolution
     const resolvedApiKey =
-      clientApiKey?.trim() ||
-      req.headers.get('x-gemini-api-key')?.trim() ||
       process.env.GEMINI_API_KEY?.trim() ||
       process.env.NEXT_PUBLIC_GEMINI_API_KEY?.trim();
 
     if (!resolvedApiKey) {
       return NextResponse.json({
         hasRealGeminiKey: false,
-        error: 'No Gemini API Key configured. Please enter your Gemini API key in settings or set GEMINI_API_KEY in your .env.local file.',
+        error: 'No GEMINI_API_KEY configured in environment variables (.env.local).',
       });
     }
 

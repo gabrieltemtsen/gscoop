@@ -153,4 +153,38 @@ contract GScoopYieldLendingTest is Test {
         assertTrue(vault.yieldEnabled());
         assertEq(vault.yieldStrategy(), address(yieldVault));
     }
+
+    function testLargeMemberPoolScaling() public {
+        // Create a 30-member vault
+        address largeVaultAddr = factory.createCoop("Megapool 30", 10 * 1e18, 1 days, 30);
+        GScoopVault largeVault = GScoopVault(payable(largeVaultAddr));
+
+        // Enroll 30 distinct members
+        for (uint160 i = 1; i <= 30; i++) {
+            address member = address(uint160(0x9000 + i));
+            vm.deal(member, 100 * 1e18);
+            vm.prank(member);
+            largeVault.joinPool();
+        }
+
+        assertEq(largeVault.getMemberCount(), 30);
+
+        // Member 30 bids 20 USDC discount in early turn auction
+        address bidder = address(0x9000 + 30);
+        vm.prank(bidder);
+        largeVault.submitTurnBid(20 * 1e18);
+
+        // All 30 members deposit
+        for (uint160 i = 1; i <= 30; i++) {
+            address member = address(uint160(0x9000 + i));
+            vm.prank(member);
+            largeVault.deposit{value: 10 * 1e18}();
+        }
+
+        // Pot is 30 * 10 = 300 USDC.
+        // Bidder receives 300 - 20 = 280 USDC.
+        // Since members > 15, the 20 USDC discount was added to reserveFund in O(1) gas!
+        assertEq(largeVault.reserveFund(), 20 * 1e18);
+        assertEq(largeVault.currentCycle(), 1);
+    }
 }
