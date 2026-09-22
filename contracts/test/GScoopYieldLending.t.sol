@@ -269,4 +269,46 @@ contract GScoopYieldLendingTest is Test {
         assertEq(charlie.balance, charlieBalBefore + 20 * 1e18);
         assertEq(vault.reserveFund(), 40 * 1e18);
     }
+
+    function testAutoSaveRecurringSubscription() public {
+        // Bob sets up an Auto-Save subscription for 3 cycles (150 USDC)
+        // Cycle 0 deposit (50 USDC) is automatically executed immediately.
+        // 100 USDC remains in prefundedStash.
+        vm.prank(bob);
+        vault.setupAutoSaveSubscription{value: 150 * 1e18}(3);
+
+        (bool isActive, uint256 debitAmt, uint256 maxCycles, uint256 executed, uint256 remainingStash) = vault.getAutoSaveStatus(bob);
+        assertTrue(isActive);
+        assertEq(debitAmt, CONTRIBUTION);
+        assertEq(maxCycles, 3);
+        assertEq(executed, 1);
+        assertEq(remainingStash, 100 * 1e18);
+        assertTrue(vault.hasDeposited(0, bob));
+
+        // Alice and Charlie deposit for Cycle 0
+        vm.prank(alice);
+        vault.deposit{value: CONTRIBUTION}();
+        vm.prank(charlie);
+        vault.deposit{value: CONTRIBUTION}();
+
+        // Cycle 0 completes, advances to Cycle 1
+        assertEq(vault.currentCycle(), 1);
+
+        // In Cycle 1, anyone (or an automated keeper) triggers executeAutoDebit for Bob
+        vault.executeAutoDebit(bob);
+
+        assertTrue(vault.hasDeposited(1, bob));
+        (, , , uint256 executedAfterCycle1, uint256 remainingAfterCycle1) = vault.getAutoSaveStatus(bob);
+        assertEq(executedAfterCycle1, 2);
+        assertEq(remainingAfterCycle1, 50 * 1e18);
+
+        // Bob cancels his remaining auto-save subscription
+        uint256 bobBalBefore = bob.balance;
+        vm.prank(bob);
+        vault.cancelAutoSaveSubscription();
+
+        assertEq(bob.balance, bobBalBefore + 50 * 1e18); // 50 USDC refunded!
+        (bool isActiveAfterCancel, , , , ) = vault.getAutoSaveStatus(bob);
+        assertFalse(isActiveAfterCancel);
+    }
 }

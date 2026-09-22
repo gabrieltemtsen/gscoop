@@ -5,6 +5,14 @@ export interface DiscountBidData {
   discountAmount: bigint;
 }
 
+export interface AutoSaveMandateData {
+  isActive: boolean;
+  cycleDebitAmount: bigint;
+  maxCycles: number;
+  cyclesExecuted: number;
+  prefundedStash: bigint;
+}
+
 export interface CoopVaultData {
   address: `0x${string}`;
   name: string;
@@ -34,6 +42,8 @@ export interface CoopVaultData {
   boosterBalances?: Record<string, string>; // member address -> booster savings in stringified bigint
   memberShares?: Record<string, number>;    // member address -> share count
   totalBoosterSavings?: bigint;
+  // Recurring Auto-Save Subscriptions
+  autoSaveMandates?: Record<string, AutoSaveMandateData>;
 }
 
 const DEFAULT_VAULTS: CoopVaultData[] = [

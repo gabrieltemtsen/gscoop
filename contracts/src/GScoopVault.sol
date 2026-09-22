@@ -59,6 +59,16 @@ contract GScoopVault is ReentrancyGuard, Pausable {
     // Multi-Share Cooperative Membership ("Buy Shares")
     mapping(address => uint256) public memberShares;
 
+    // Auto-Save Recurring Subscription Mandate ("Autopilot Savings")
+    struct AutoSaveMandate {
+        bool isActive;
+        uint256 cycleDebitAmount; // Native USDC to debit per cycle
+        uint256 maxCycles;        // Total cycles authorized in subscription
+        uint256 cyclesExecuted;   // Cycles already fulfilled
+        uint256 prefundedStash;   // Reserved native USDC locked for auto-debit
+    }
+    mapping(address => AutoSaveMandate) public autoSaveMandates;
+
     // Discount Bidding Auction for Early Turn Liquidity
     struct DiscountBid {
         address bidder;
@@ -82,6 +92,9 @@ contract GScoopVault is ReentrancyGuard, Pausable {
     event BoosterSavingsWithdrawn(address indexed member, uint256 amount, uint256 remainingBooster);
     event SharesPurchased(address indexed member, uint256 additionalShares, uint256 newTotalShares);
     event PatronageDividendsDistributed(uint256 totalDistributed, uint256 dividendPerSlot);
+    event AutoSaveMandateCreated(address indexed member, uint256 cycleDebitAmount, uint256 maxCycles, uint256 initialStash);
+    event AutoSaveExecuted(address indexed member, uint256 indexed cycle, uint256 amountDrawn, uint256 remainingStash);
+    event AutoSaveCancelled(address indexed member, uint256 refundedStash);
 
     // Custom errors for gas efficiency
     error NotAuthorized();
@@ -101,6 +114,8 @@ contract GScoopVault is ReentrancyGuard, Pausable {
     error InsufficientAdvanceBalance(uint256 available, uint256 required);
     error InsufficientBoosterBalance(uint256 available, uint256 requested);
     error InsufficientReserveForDividends(uint256 requested, uint256 available);
+    error MandateNotActive();
+    error InsufficientMandateStash(uint256 available, uint256 required);
 
     modifier onlyAdmin() {
         if (msg.sender != creator && msg.sender != factory) revert NotAuthorized();
@@ -203,6 +218,32 @@ contract GScoopVault is ReentrancyGuard, Pausable {
      */
     function distributePayout() external nonReentrant whenNotPaused {
         if (memberQueue.length == 0) revert NoMembersInQueue();
+
+        // Auto-fulfill any members holding active auto-save subscriptions or advance balances
+        for (uint256 i = 0; i < memberQueue.length; i++) {
+            address member = memberQueue[i];
+            if (!hasDeposited[currentCycle][member]) {
+                AutoSaveMandate storage mandate = autoSaveMandates[member];
+                if (mandate.isActive && mandate.prefundedStash >= contributionAmount) {
+                    mandate.prefundedStash -= contributionAmount;
+                    mandate.cyclesExecuted++;
+                    hasDeposited[currentCycle][member] = true;
+                    cycleDepositCount[currentCycle]++;
+                    emit AutoSaveExecuted(member, currentCycle, contributionAmount, mandate.prefundedStash);
+                    emit DepositReceived(member, currentCycle, contributionAmount);
+
+                    if (mandate.cyclesExecuted >= mandate.maxCycles || mandate.prefundedStash < contributionAmount) {
+                        mandate.isActive = false;
+                    }
+                } else if (advanceBalance[member] >= contributionAmount) {
+                    advanceBalance[member] -= contributionAmount;
+                    hasDeposited[currentCycle][member] = true;
+                    cycleDepositCount[currentCycle]++;
+                    emit AdvanceDrawn(member, currentCycle, contributionAmount);
+                    emit DepositReceived(member, currentCycle, contributionAmount);
+                }
+            }
+        }
 
         bool deadlineReached = block.timestamp >= cycleDeadline;
         bool allMembersDeposited = cycleDepositCount[currentCycle] >= memberQueue.length;
@@ -594,6 +635,123 @@ contract GScoopVault is ReentrancyGuard, Pausable {
         }
 
         emit PatronageDividendsDistributed(totalDividendAmount, dividendPerSlot);
+    }
+
+    // =========================================================================
+    // AUTO-SAVE RECURRING SUBSCRIPTION MANDATE ("AUTOPILOT SAVINGS")
+    // =========================================================================
+
+    /**
+     * @notice Set up an automated recurring savings subscription.
+     *         Locks a prefunded stash of native USDC specifically dedicated to auto-debiting
+     *         upcoming cycles on autopilot without manual transaction signing!
+     * @param totalCycles Number of cycles to pre-authorize (e.g. 5 or 10 cycles).
+     */
+    function setupAutoSaveSubscription(uint256 totalCycles) external payable nonReentrant whenNotPaused {
+        require(totalCycles > 0, "Cycles must be > 0");
+        uint256 minRequired = contributionAmount * totalCycles;
+        require(msg.value >= minRequired, "Insufficient USDC for subscription");
+
+        if (!isMember[msg.sender]) {
+            joinPool();
+        }
+
+        uint256 initialStash = msg.value;
+        uint256 executedNow = 0;
+
+        // If member hasn't deposited for the current active cycle, auto-fulfill it now!
+        if (!hasDeposited[currentCycle][msg.sender]) {
+            hasDeposited[currentCycle][msg.sender] = true;
+            cycleDepositCount[currentCycle]++;
+            initialStash -= contributionAmount;
+            executedNow = 1;
+            emit DepositReceived(msg.sender, currentCycle, contributionAmount);
+
+            if (yieldEnabled && yieldStrategy != address(0)) {
+                _depositToYieldStrategy(contributionAmount);
+            }
+
+            if (memberQueue.length > 0 && cycleDepositCount[currentCycle] == memberQueue.length) {
+                _executePayout();
+            }
+        }
+
+        autoSaveMandates[msg.sender] = AutoSaveMandate({
+            isActive: true,
+            cycleDebitAmount: contributionAmount,
+            maxCycles: totalCycles,
+            cyclesExecuted: executedNow,
+            prefundedStash: initialStash
+        });
+
+        emit AutoSaveMandateCreated(msg.sender, contributionAmount, totalCycles, initialStash);
+    }
+
+    /**
+     * @notice Settle an auto-debit on behalf of a subscribed member when a new cycle is active.
+     *         Can be triggered by an automated bot/keeper, the cycle beneficiary, or any group peer.
+     */
+    function executeAutoDebit(address member) external nonReentrant whenNotPaused {
+        AutoSaveMandate storage mandate = autoSaveMandates[member];
+        if (!mandate.isActive) revert MandateNotActive();
+        if (hasDeposited[currentCycle][member]) revert DuplicateDepositForCycle(currentCycle, member);
+        if (mandate.prefundedStash < contributionAmount) {
+            revert InsufficientMandateStash(mandate.prefundedStash, contributionAmount);
+        }
+
+        mandate.prefundedStash -= contributionAmount;
+        mandate.cyclesExecuted++;
+        hasDeposited[currentCycle][member] = true;
+        cycleDepositCount[currentCycle]++;
+
+        emit AutoSaveExecuted(member, currentCycle, contributionAmount, mandate.prefundedStash);
+        emit DepositReceived(member, currentCycle, contributionAmount);
+
+        if (yieldEnabled && yieldStrategy != address(0)) {
+            _depositToYieldStrategy(contributionAmount);
+        }
+
+        // If subscription completed all authorized cycles, mark inactive
+        if (mandate.cyclesExecuted >= mandate.maxCycles || mandate.prefundedStash < contributionAmount) {
+            mandate.isActive = false;
+        }
+
+        if (memberQueue.length > 0 && cycleDepositCount[currentCycle] == memberQueue.length) {
+            _executePayout();
+        }
+    }
+
+    /**
+     * @notice Cancel an active auto-save subscription anytime and immediately refund 100% of remaining stash.
+     */
+    function cancelAutoSaveSubscription() external nonReentrant {
+        AutoSaveMandate storage mandate = autoSaveMandates[msg.sender];
+        if (!mandate.isActive) revert MandateNotActive();
+
+        uint256 refundAmount = mandate.prefundedStash;
+        mandate.isActive = false;
+        mandate.prefundedStash = 0;
+
+        if (refundAmount > 0) {
+            (bool sent, ) = payable(msg.sender).call{value: refundAmount}("");
+            require(sent, "Refund failed");
+        }
+
+        emit AutoSaveCancelled(msg.sender, refundAmount);
+    }
+
+    /**
+     * @notice View auto-save subscription details for any member.
+     */
+    function getAutoSaveStatus(address member) external view returns (
+        bool isActive,
+        uint256 debitAmount,
+        uint256 maxCycles,
+        uint256 executed,
+        uint256 remainingStash
+    ) {
+        AutoSaveMandate memory m = autoSaveMandates[member];
+        return (m.isActive, m.cycleDebitAmount, m.maxCycles, m.cyclesExecuted, m.prefundedStash);
     }
 
     // =========================================================================

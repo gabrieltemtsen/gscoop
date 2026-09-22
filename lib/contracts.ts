@@ -324,6 +324,45 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "function",
+    "name": "autoSaveMandates",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "isActive",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "cycleDebitAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxCycles",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "cyclesExecuted",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "prefundedStash",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "boosterSavings",
     "inputs": [
       {
@@ -366,6 +405,13 @@ export const GSCOOP_VAULT_ABI = [
     ],
     "outputs": [],
     "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "cancelAutoSaveSubscription",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -525,6 +571,19 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "function",
+    "name": "executeAutoDebit",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "factory",
     "inputs": [],
     "outputs": [
@@ -532,6 +591,45 @@ export const GSCOOP_VAULT_ABI = [
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getAutoSaveStatus",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "isActive",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "debitAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxCycles",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "executed",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "remainingStash",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -928,6 +1026,19 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "function",
+    "name": "setupAutoSaveSubscription",
+    "inputs": [
+      {
+        "name": "totalCycles",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
     "name": "submitTurnBid",
     "inputs": [
       {
@@ -1073,6 +1184,87 @@ export const GSCOOP_VAULT_ABI = [
       },
       {
         "name": "totalAdvance",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AutoSaveCancelled",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "refundedStash",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AutoSaveExecuted",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "cycle",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "amountDrawn",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "remainingStash",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AutoSaveMandateCreated",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "cycleDebitAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxCycles",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "initialStash",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1574,6 +1766,22 @@ export const GSCOOP_VAULT_ABI = [
   },
   {
     "type": "error",
+    "name": "InsufficientMandateStash",
+    "inputs": [
+      {
+        "name": "available",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "required",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InsufficientReserveForDividends",
     "inputs": [
       {
@@ -1603,6 +1811,11 @@ export const GSCOOP_VAULT_ABI = [
         "internalType": "uint256"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "MandateNotActive",
+    "inputs": []
   },
   {
     "type": "error",

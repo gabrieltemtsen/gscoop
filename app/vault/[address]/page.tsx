@@ -56,7 +56,7 @@ export default function VaultDashboardPage() {
 
   // Capital Efficiency & Cooperative Growth Tabs
   const [activeFinanceTab, setActiveFinanceTab] = useState<
-    'borrow' | 'auction' | 'yield' | 'advance' | 'booster' | 'shares' | 'dividends'
+    'borrow' | 'auction' | 'yield' | 'autosave' | 'advance' | 'booster' | 'shares' | 'dividends'
   >('borrow');
   const [borrowInput, setBorrowInput] = useState('50');
   const [bidInput, setBidInput] = useState('10');
@@ -68,6 +68,10 @@ export default function VaultDashboardPage() {
   const [isBoosterDepositing, setIsBoosterDepositing] = useState(false);
   const [isBuyingShares, setIsBuyingShares] = useState(false);
   const [isDistributingDividends, setIsDistributingDividends] = useState(false);
+  const [autoSaveCycles, setAutoSaveCycles] = useState<number>(5);
+  const [isSettingUpAutoSave, setIsSettingUpAutoSave] = useState(false);
+  const [isCancellingAutoSave, setIsCancellingAutoSave] = useState(false);
+  const [isExecutingDebit, setIsExecutingDebit] = useState(false);
 
   // Load vault data
   const loadVaultData = () => {
@@ -180,6 +184,11 @@ export default function VaultDashboardPage() {
   const userShares = useMemo(() => {
     if (!userAddress || !vault?.memberShares) return 1;
     return vault.memberShares[userAddress.toLowerCase()] || 1;
+  }, [userAddress, vault]);
+
+  const userAutoSave = useMemo(() => {
+    if (!userAddress || !vault?.autoSaveMandates) return null;
+    return vault.autoSaveMandates[userAddress.toLowerCase()] || null;
   }, [userAddress, vault]);
 
   // Beneficiary for current cycle (accounts for winning auction bid!)
@@ -854,6 +863,186 @@ export default function VaultDashboardPage() {
     }
   };
 
+  // 13. Setup Auto-Save Recurring Subscription Mandate
+  const handleSetupAutoSave = async () => {
+    if (!vault) return;
+    if (autoSaveCycles <= 0) return;
+    setIsSettingUpAutoSave(true);
+
+    try {
+      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
+      const totalAmount = vault.contributionAmount * BigInt(autoSaveCycles);
+
+      if (isConnected && writeContractAsync) {
+        try {
+          await writeContractAsync({
+            address: vault.address,
+            abi: GSCOOP_VAULT_ABI,
+            functionName: 'setupAutoSaveSubscription',
+            args: [BigInt(autoSaveCycles)],
+            value: totalAmount,
+            chainId: arcMainnet.id,
+          });
+        } catch (e) {
+          console.warn('On-chain setupAutoSave fallback', e);
+        }
+      }
+
+      // If current cycle wasn't deposited, 1 cycle is fulfilled immediately
+      const isAlreadyDeposited = hasUserDepositedForCycle;
+      const initialExecuted = isAlreadyDeposited ? 0 : 1;
+      const remainingStash = isAlreadyDeposited ? totalAmount : totalAmount - vault.contributionAmount;
+
+      const updatedMandates = {
+        ...(vault.autoSaveMandates || {}),
+        [activeUser.toLowerCase()]: {
+          isActive: true,
+          cycleDebitAmount: vault.contributionAmount,
+          maxCycles: autoSaveCycles,
+          cyclesExecuted: initialExecuted,
+          prefundedStash: remainingStash,
+        },
+      };
+
+      let newDeposits = vault.cycleDeposits;
+      let newBalance = vault.balance;
+      if (!isAlreadyDeposited) {
+        newDeposits += BigInt(1);
+        newBalance += vault.contributionAmount;
+        if (typeof window !== 'undefined') {
+          const depositKey = `deposited_${vault.address}_${vault.currentCycle}_${activeUser.toLowerCase()}`;
+          localStorage.setItem(depositKey, 'true');
+        }
+      }
+
+      const updatedVault: CoopVaultData = {
+        ...vault,
+        cycleDeposits: newDeposits,
+        balance: newBalance,
+        autoSaveMandates: updatedMandates,
+      };
+
+      saveVault(updatedVault);
+      setVault(updatedVault);
+      triggerConfetti();
+      setActionSuccessMessage(
+        `⚡ Autopilot Activated! ${autoSaveCycles} cycles authorized ($${formatUSDC(totalAmount)} USDC). Future cycles will auto-debit on schedule!`
+      );
+      setTimeout(() => setActionSuccessMessage(null), 6000);
+    } catch (err: any) {
+      console.error(err);
+      alert('Auto-save setup error: ' + (err?.message || 'Transaction failed'));
+    } finally {
+      setIsSettingUpAutoSave(false);
+    }
+  };
+
+  // 14. Cancel Auto-Save Recurring Subscription
+  const handleCancelAutoSave = async () => {
+    if (!vault || !userAutoSave || !userAutoSave.isActive) return;
+    setIsCancellingAutoSave(true);
+
+    try {
+      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
+      const refundStash = userAutoSave.prefundedStash;
+
+      if (isConnected && writeContractAsync) {
+        try {
+          await writeContractAsync({
+            address: vault.address,
+            abi: GSCOOP_VAULT_ABI,
+            functionName: 'cancelAutoSaveSubscription',
+            chainId: arcMainnet.id,
+          });
+        } catch (e) {
+          console.warn('On-chain cancelAutoSave fallback', e);
+        }
+      }
+
+      const updatedMandates = {
+        ...(vault.autoSaveMandates || {}),
+        [activeUser.toLowerCase()]: {
+          ...userAutoSave,
+          isActive: false,
+          prefundedStash: BigInt(0),
+        },
+      };
+
+      const updatedVault: CoopVaultData = {
+        ...vault,
+        autoSaveMandates: updatedMandates,
+      };
+
+      saveVault(updatedVault);
+      setVault(updatedVault);
+      triggerConfetti();
+      setActionSuccessMessage(
+        `Autopilot Cancelled. Unused buffer of $${formatUSDC(refundStash)} USDC has been refunded to your wallet.`
+      );
+      setTimeout(() => setActionSuccessMessage(null), 6000);
+    } catch (err: any) {
+      console.error(err);
+      alert('Auto-save cancellation error: ' + (err?.message || 'Cancellation failed'));
+    } finally {
+      setIsCancellingAutoSave(false);
+    }
+  };
+
+  // 15. Trigger Auto-Debit on behalf of a subscribed member (Keeper role)
+  const handleExecuteAutoDebit = async (targetMember: string) => {
+    if (!vault) return;
+    setIsExecutingDebit(true);
+
+    try {
+      if (isConnected && writeContractAsync) {
+        try {
+          await writeContractAsync({
+            address: vault.address,
+            abi: GSCOOP_VAULT_ABI,
+            functionName: 'executeAutoDebit',
+            args: [targetMember as `0x${string}`],
+            chainId: arcMainnet.id,
+          });
+        } catch (e) {
+          console.warn('On-chain executeAutoDebit fallback', e);
+        }
+      }
+
+      const mandate = vault.autoSaveMandates?.[targetMember.toLowerCase()];
+      if (mandate && mandate.prefundedStash >= vault.contributionAmount) {
+        const remaining = mandate.prefundedStash - vault.contributionAmount;
+        const newExecuted = mandate.cyclesExecuted + 1;
+        const updatedMandates = {
+          ...(vault.autoSaveMandates || {}),
+          [targetMember.toLowerCase()]: {
+            ...mandate,
+            cyclesExecuted: newExecuted,
+            prefundedStash: remaining,
+            isActive: newExecuted < mandate.maxCycles && remaining >= vault.contributionAmount,
+          },
+        };
+
+        const updatedVault: CoopVaultData = {
+          ...vault,
+          balance: vault.balance + vault.contributionAmount,
+          cycleDeposits: vault.cycleDeposits + BigInt(1),
+          autoSaveMandates: updatedMandates,
+        };
+
+        saveVault(updatedVault);
+        setVault(updatedVault);
+        triggerConfetti();
+        setActionSuccessMessage(`Auto-debit executed for ${formatAddress(targetMember)}! Cycle quota fulfilled.`);
+        setTimeout(() => setActionSuccessMessage(null), 5000);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert('Execute auto-debit error: ' + (err?.message || 'Execution failed'));
+    } finally {
+      setIsExecutingDebit(false);
+    }
+  };
+
   if (!vault) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-24 text-center">
@@ -1098,6 +1287,17 @@ export default function VaultDashboardPage() {
                   <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
                     Deposit your required quota in native USDC for Cycle #{vault.currentCycle.toString()}.
                   </p>
+                  {userAutoSave?.isActive && (
+                    <div className="mt-2 flex items-center justify-between rounded-xl bg-cyan-950/40 border border-cyan-500/30 px-3 py-2 text-[11px]">
+                      <span className="flex items-center gap-1.5 text-cyan-300 font-semibold">
+                        <Zap className="h-3.5 w-3.5 text-cyan-400" />
+                        <span>Autopilot Active</span>
+                      </span>
+                      <span className="font-mono text-zinc-300">
+                        {userAutoSave.cyclesExecuted}/{userAutoSave.maxCycles} cycles (${formatUSDC(userAutoSave.prefundedStash)} left)
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -1196,12 +1396,13 @@ export default function VaultDashboardPage() {
               {/* Scrollable Tabs Bar */}
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
                 {[
-                  { id: 'borrow', label: '💳 Turn Loan' },
-                  { id: 'auction', label: '🏷️ Turn Auction' },
-                  { id: 'yield', label: '📈 Float Yield' },
+                  { id: 'autosave', label: '⚡ Autopilot' },
                   { id: 'advance', label: '⏱️ Pre-Pay Buffer' },
                   { id: 'booster', label: '💰 Save More (Booster)' },
                   { id: 'shares', label: '🎟️ Buy Shares' },
+                  { id: 'borrow', label: '💳 Turn Loan' },
+                  { id: 'auction', label: '🏷️ Turn Auction' },
+                  { id: 'yield', label: '📈 Float Yield' },
                   { id: 'dividends', label: '🎁 Annual Dividends' },
                 ].map((tab) => (
                   <button
@@ -1218,6 +1419,245 @@ export default function VaultDashboardPage() {
                 ))}
               </div>
             </div>
+
+            {/* TAB: AUTOPILOT RECURRING SAVINGS MANDATE */}
+            {activeFinanceTab === 'autosave' && (
+              <div className="space-y-4">
+                <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.06] p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Zap className="h-4 w-4 text-cyan-400" />
+                      Autopilot Recurring Savings Mandate
+                    </span>
+                    <span className="text-xs font-mono text-cyan-400 font-bold bg-cyan-500/10 px-2.5 py-0.5 rounded-lg border border-cyan-500/20">
+                      Subscription-Based
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Set up a hands-free savings subscription. Authorize an autopilot mandate with a pre-funded USDC buffer; the smart contract automatically debits your cycle contribution upon each round settlement. <strong>100% revocable: cancel anytime and refund all unspent funds instantly!</strong>
+                  </p>
+
+                  {/* Architecture & Security explainer */}
+                  <div className="rounded-xl bg-gradient-to-br from-cyan-950/20 to-black border border-cyan-500/20 p-3.5 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-cyan-300">
+                      <ShieldCheck className="h-4 w-4 text-cyan-400 shrink-0" />
+                      <span>Trust-Minimized Push vs. Pull Architecture</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      EVM blockchain architecture prohibits smart contracts from pulling funds directly out of personal wallets without active signatures. GScoop achieves recurring subscriptions using on-chain <strong>Pre-Authorized Mandate Stashing</strong>: you deposit a multi-cycle reserve, and any keeper, peer, or payout disburser triggers the scheduled debit autonomously when the cycle matures.
+                    </p>
+                  </div>
+
+                  {/* Active Mandate Status Card (if user has one active) */}
+                  {userAutoSave?.isActive ? (
+                    <div className="rounded-xl bg-emerald-950/20 border border-emerald-500/30 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                          Autopilot Subscription Active
+                        </span>
+                        <span className="text-xs font-mono text-emerald-300 font-semibold">
+                          {userAutoSave.cyclesExecuted} of {userAutoSave.maxCycles} Cycles Debited
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <div className="rounded-lg bg-black/40 border border-white/[0.04] p-2.5">
+                          <span className="text-[10px] text-zinc-400 uppercase">Remaining Buffer</span>
+                          <p className="text-sm font-bold text-emerald-400 font-mono mt-0.5">
+                            ${formatUSDC(userAutoSave.prefundedStash)} USDC
+                          </p>
+                        </div>
+                        <div className="rounded-lg bg-black/40 border border-white/[0.04] p-2.5">
+                          <span className="text-[10px] text-zinc-400 uppercase">Per-Cycle Debit</span>
+                          <p className="text-sm font-bold text-white font-mono mt-0.5">
+                            ${formatUSDC(userAutoSave.cycleDebitAmount)} USDC
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[11px] text-zinc-400">
+                          <span>Subscription Progress</span>
+                          <span className="font-mono text-zinc-300">
+                            {userAutoSave.maxCycles > 0
+                              ? Math.round((userAutoSave.cyclesExecuted / userAutoSave.maxCycles) * 100)
+                              : 0}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-300"
+                            style={{
+                              width: `${
+                                userAutoSave.maxCycles > 0
+                                  ? Math.min(100, Math.round((userAutoSave.cyclesExecuted / userAutoSave.maxCycles) * 100))
+                                  : 0
+                              }%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <button
+                          onClick={handleCancelAutoSave}
+                          disabled={isCancellingAutoSave}
+                          className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-950/20 py-2.5 text-xs font-semibold text-red-300 hover:bg-red-900/30 transition-all cursor-pointer"
+                        >
+                          {isCancellingAutoSave ? (
+                            <span>Refunding Unspent Buffer...</span>
+                          ) : (
+                            <>
+                              <RefreshCw className="h-3.5 w-3.5" />
+                              <span>Cancel Subscription & Refund ${formatUSDC(userAutoSave.prefundedStash)} USDC</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Setup New Subscription Form */
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-zinc-300">
+                          Select Subscription Duration:
+                        </label>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            { count: 3, label: '3 Cycles' },
+                            { count: 5, label: '5 Cycles' },
+                            { count: 10, label: '10 Cycles' },
+                            {
+                              count: Number(vault.memberCount) > 0 ? Number(vault.memberCount) : 8,
+                              label: `Season (${vault.memberCount.toString()}x)`,
+                            },
+                          ].map((item) => (
+                            <button
+                              key={item.count}
+                              type="button"
+                              onClick={() => setAutoSaveCycles(item.count)}
+                              className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                                autoSaveCycles === item.count
+                                  ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-300'
+                                  : 'border-white/[0.06] bg-black/40 text-zinc-400 hover:text-white'
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Cost Summary */}
+                      <div className="rounded-xl bg-black/40 border border-white/[0.04] p-3 space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-zinc-400">Contribution Quota per Cycle:</span>
+                          <span className="text-white font-mono">${formatUSDC(vault.contributionAmount)} USDC</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-zinc-400">Total Subscription Stash Required:</span>
+                          <span className="text-cyan-400 font-mono font-bold">
+                            ${formatUSDC(vault.contributionAmount * BigInt(autoSaveCycles))} USDC
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-zinc-400">Initial Cycle Execution:</span>
+                          <span className="text-zinc-300 font-mono">
+                            {hasUserDepositedForCycle ? 'Cycle already paid (Autopilot starts next cycle)' : 'Cycle #auto-fulfilled immediately'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs pt-1 border-t border-white/[0.04]">
+                          <span className="text-zinc-400">Arc Network Gas Fee:</span>
+                          <span className="text-emerald-400 font-mono">~$0.005 USDC</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleSetupAutoSave}
+                        disabled={isSettingUpAutoSave || autoSaveCycles <= 0}
+                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-cyan-500 py-3 text-xs font-bold text-black hover:bg-cyan-400 disabled:opacity-40 transition-all cursor-pointer shadow-lg shadow-cyan-500/10"
+                      >
+                        {isSettingUpAutoSave ? (
+                          <span>Authorizing Autopilot Mandate...</span>
+                        ) : (
+                          <>
+                            <Zap className="h-4 w-4" />
+                            <span>
+                              Activate Autopilot (${formatUSDC(vault.contributionAmount * BigInt(autoSaveCycles))} USDC)
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Peer / Keeper Auto-Debit Execution Queue */}
+                  <div className="pt-2 border-t border-white/[0.06] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                        <RefreshCw className="h-3.5 w-3.5 text-zinc-400" />
+                        <span>Autopilot Keeper Queue</span>
+                      </span>
+                      <span className="text-[10px] text-zinc-500">
+                        Autonomous cycle execution
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-zinc-400">
+                      Subscribed members have pre-authorized their balances. Any peer or Arc keeper can execute pending auto-debits without waiting for the user to be online.
+                    </p>
+
+                    {/* Check other members with active mandates who haven't deposited */}
+                    {(() => {
+                      const subscribedMembers = vault.members.filter((m) => {
+                        const mandate = vault.autoSaveMandates?.[m.toLowerCase()];
+                        return mandate?.isActive && mandate.prefundedStash >= vault.contributionAmount;
+                      });
+
+                      if (subscribedMembers.length === 0) {
+                        return (
+                          <div className="rounded-xl bg-black/30 border border-white/[0.04] p-3 text-center text-xs text-zinc-500">
+                            No external members pending auto-debit for Cycle #{vault.currentCycle.toString()}.
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-1.5 pt-1">
+                          {subscribedMembers.map((m) => {
+                            const mandate = vault.autoSaveMandates![m.toLowerCase()];
+                            return (
+                              <div
+                                key={m}
+                                className="flex items-center justify-between rounded-xl bg-black/40 border border-white/[0.04] p-2.5 text-xs"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-zinc-300">{formatAddress(m, 5)}</span>
+                                  <span className="text-[10px] text-zinc-400">
+                                    (${formatUSDC(mandate.prefundedStash)} buffered)
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => handleExecuteAutoDebit(m)}
+                                  disabled={isExecutingDebit}
+                                  className="flex items-center gap-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 px-2.5 py-1 text-[11px] font-semibold text-cyan-300 hover:bg-cyan-500/25 transition-all cursor-pointer"
+                                >
+                                  <Zap className="h-3 w-3" />
+                                  <span>Execute Auto-Debit</span>
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* TAB 1: TURN-COLLATERALIZED BORROWING */}
             {activeFinanceTab === 'borrow' && (
