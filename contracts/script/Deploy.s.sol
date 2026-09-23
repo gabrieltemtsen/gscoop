@@ -12,9 +12,20 @@ contract DeployGScoop is Script {
         try vm.envUint("PRIVATE_KEY") returns (uint256 key) {
             deployerPrivateKey = key;
         } catch {
-            // Default demo anvil key if PRIVATE_KEY is not set
-            deployerPrivateKey = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
+            try vm.envBytes32("PRIVATE_KEY") returns (bytes32 key32) {
+                deployerPrivateKey = uint256(key32);
+            } catch {
+                // Default demo anvil key if PRIVATE_KEY is not set
+                deployerPrivateKey = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
+            }
         }
+
+        address deployer = vm.addr(deployerPrivateKey);
+        console.log("-----------------------------------------------");
+        console.log("GScoop Arc Mainnet Deployment");
+        console.log("Deployer Address:", deployer);
+        console.log("Deployer Balance (USDC units):", deployer.balance);
+        console.log("-----------------------------------------------");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -29,5 +40,11 @@ contract DeployGScoop is Script {
         );
 
         vm.stopBroadcast();
+
+        console.log("-----------------------------------------------");
+        console.log("Deployment Successful!");
+        console.log("GScoopFactory deployed at:", address(factory));
+        console.log("Showcase Vault deployed at:", showcaseVault);
+        console.log("-----------------------------------------------");
     }
 }
