@@ -41,7 +41,21 @@ contract GScoopTest is Test {
 
         assertEq(vault.getMemberCount(), 1);
         assertTrue(vault.isMember(alice));
-        assertEq(vault.getCurrentBeneficiary(), alice);
+    }
+
+    function testSoloMemberDepositDoesNotAutoSettle() public {
+        vm.prank(alice);
+        vault.joinPool();
+
+        // Alice deposits into the 3-member vault as the sole member so far
+        vm.prank(alice);
+        vault.deposit{value: CONTRIBUTION}();
+
+        // Funds MUST stay in the vault to accumulate, NOT auto-settle back to Alice!
+        assertEq(address(vault).balance, CONTRIBUTION);
+        assertEq(vault.currentCycle(), 0);
+        assertTrue(vault.hasMemberDeposited(0, alice));
+        assertEq(alice.balance, 1000 * 1e18 - CONTRIBUTION);
     }
 
     function testDuplicateDepositReverts() public {

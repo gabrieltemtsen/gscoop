@@ -206,8 +206,9 @@ contract GScoopVault is ReentrancyGuard, Pausable {
             _depositToYieldStrategy(cycleCost);
         }
 
-        // Instant settlement trigger if all members have deposited
-        if (memberQueue.length > 0 && cycleDepositCount[currentCycle] == memberQueue.length) {
+        // Instant settlement trigger: Only auto-settle when the full group capacity is met (at least 2 members)
+        uint256 targetMembers = maxMembers > 0 ? maxMembers : memberQueue.length;
+        if (targetMembers >= 2 && cycleDepositCount[currentCycle] >= targetMembers && memberQueue.length >= targetMembers) {
             _executePayout();
         }
     }
