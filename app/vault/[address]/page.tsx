@@ -1194,15 +1194,12 @@ export default function VaultDashboardPage() {
                     Set up a hands-free savings subscription. Authorize an autopilot mandate with a pre-funded USDC buffer; the smart contract automatically debits your cycle contribution upon each round settlement. <strong>100% revocable: cancel anytime and refund all unspent funds instantly!</strong>
                   </p>
 
-                  {/* Architecture & Security explainer */}
-                  <div className="rounded-xl bg-gradient-to-br from-cyan-950/20 to-black border border-cyan-500/20 p-3.5 space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-cyan-300">
-                      <ShieldCheck className="h-4 w-4 text-cyan-400 shrink-0" />
-                      <span>Trust-Minimized Push vs. Pull Architecture</span>
-                    </div>
-                    <p className="text-[11px] text-zinc-400 leading-relaxed">
-                      EVM blockchain architecture prohibits smart contracts from pulling funds directly out of personal wallets without active signatures. GScoop achieves recurring subscriptions using on-chain <strong>Pre-Authorized Mandate Stashing</strong>: you deposit a multi-cycle reserve, and any keeper, peer, or payout disburser triggers the scheduled debit autonomously when the cycle matures.
-                    </p>
+                  {/* Architecture & Security note */}
+                  <div className="rounded-xl bg-cyan-950/15 border border-cyan-500/20 p-3 flex items-center gap-2.5">
+                    <ShieldCheck className="h-4 w-4 text-cyan-400 shrink-0" />
+                    <span className="text-[11px] text-zinc-300">
+                      Auto-debits execute seamlessly each cycle from your pre-funded buffer. Cancel and refund unspent USDC anytime.
+                    </span>
                   </div>
 
                   {/* Active Mandate Status Card (if user has one active) */}

@@ -360,13 +360,11 @@ export default function CreateVaultPage() {
               {maxMembers >= 20 && (
                 <div className="mt-3 rounded-xl bg-cyan-950/20 border border-cyan-500/20 p-3 flex items-start gap-2.5">
                   <Users className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
-                  <div className="text-[11px] space-y-1 text-zinc-300 leading-relaxed">
-                    <p className="font-semibold text-cyan-300">
-                      High-Capacity Cooperative Circle ({maxMembers} Members)
-                    </p>
-                    <p className="text-zinc-400">
-                      Traditional savings groups cap members at 5–12 due to long wait times. On Arc Mainnet, micro-network fees (~$0.005) enable <strong>Daily (24h) or 3-day rotations</strong>, completing a full circle in just {Math.round((cycleDuration * maxMembers) / 86400)} days. Late-queue members can also use <strong>Turn-Collateralized Borrowing (up to 75%)</strong> or <strong>Turn Auctions</strong> to access immediate capital without waiting months!
-                    </p>
+                  <div className="text-[11px] text-zinc-300 leading-relaxed">
+                    <span className="font-semibold text-cyan-300">Large Circle ({maxMembers} Members): </span>
+                    <span className="text-zinc-400">
+                      High-frequency cycles and turn-borrowing allow large pools to rotate smoothly without long wait times.
+                    </span>
                   </div>
                 </div>
               )}
@@ -375,7 +373,7 @@ export default function CreateVaultPage() {
             {/* Yield & Credit Features */}
             <div className="space-y-3 rounded-2xl border border-white/[0.08] bg-[#0c0c0e] p-4">
               <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider block">
-                Advanced Capital Efficiency & Liquidity Options
+                Capital Efficiency & Liquidity
               </span>
 
               {/* Toggle 1: Yield Strategy */}
@@ -389,10 +387,10 @@ export default function CreateVaultPage() {
                 <div className="text-xs space-y-0.5">
                   <span className="font-semibold text-white flex items-center gap-1.5">
                     <Zap className="h-3.5 w-3.5 text-emerald-400" />
-                    Automated Float Yield Compounding (5.2% APY)
+                    Float Yield Compounding (~5.2% APY)
                   </span>
                   <p className="text-zinc-400 text-[11px] leading-relaxed">
-                    Routes idle cycle deposits into an ERC-4626 USDC strategy. Accrued yield boosts the payout pot or collective reserve.
+                    Idle cycle deposits earn yield to build cooperative reserves or boost pots.
                   </p>
                 </div>
               </label>
@@ -411,7 +409,7 @@ export default function CreateVaultPage() {
                     Turn-Collateralized Borrowing (Up to 75%)
                   </span>
                   <p className="text-zinc-400 text-[11px] leading-relaxed">
-                    Allows members to borrow against their scheduled future turn. Debt is auto-garnished by the smart contract upon their payout.
+                    Members can borrow liquidity against their scheduled turn with auto-garnishment upon payout.
                   </p>
                 </div>
               </label>
@@ -427,23 +425,22 @@ export default function CreateVaultPage() {
                 <div className="text-xs space-y-0.5">
                   <span className="font-semibold text-white flex items-center gap-1.5">
                     <Coins className="h-3.5 w-3.5 text-amber-400" />
-                    Turn-Bidding Auction (Discount for Immediate Liquidity)
+                    Turn-Bidding Auctions (Zero-Default Advance)
                   </span>
                   <p className="text-zinc-400 text-[11px] leading-relaxed">
-                    Enables members needing urgent capital to bid an upfront discount, instantly distributed to other savers as cash dividends.
+                    Members can bid discounts to take the pot early; discounts fund dividends for other savers.
                   </p>
                 </div>
               </label>
             </div>
 
             {/* Zero Gas Friction Notice */}
-            <div className="rounded-2xl bg-emerald-950/20 border border-emerald-500/20 p-4 flex items-start gap-3">
-              <Zap className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-              <div className="text-xs space-y-1">
-                <p className="font-semibold text-white">Arc Protocol Advantage Active</p>
-                <p className="text-zinc-400 leading-relaxed">
-                  You are deploying directly to Arc Mainnet. Your estimated network fee is <strong className="text-emerald-400">~$0.008</strong>, deducted straight from your USDC balance. No secondary gas token or bridge required!
-                </p>
+            <div className="rounded-2xl bg-emerald-950/20 border border-emerald-500/20 p-3.5 flex items-center gap-3">
+              <Zap className="h-4 w-4 text-emerald-400 shrink-0" />
+              <div className="text-xs text-zinc-300">
+                <span>Arc Mainnet: Estimated deployment fee is </span>
+                <strong className="text-emerald-400">~$0.008 USDC</strong>
+                <span className="text-zinc-400">. Deducted directly in USDC with zero token bridging.</span>
               </div>
             </div>
 

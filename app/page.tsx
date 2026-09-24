@@ -79,7 +79,7 @@ export default function Home() {
 
             {/* Sub-headline */}
             <p className="text-base sm:text-lg text-zinc-400 max-w-2xl leading-relaxed">
-              GScoop transforms the time-tested <strong className="text-zinc-200">Rotating Savings Circle</strong> model into an immutable, trust-minimized state machine on Arc. Save together with your circle in pure <strong className="text-white">native USDC</strong>—without bridging ETH, calculating gwei, or risking human treasurer fraud.
+              Save in pure dollar amounts with your trusted circle on Arc Mainnet. Automated smart contract payouts with native USDC gas, float yield, and zero friction.
             </p>
 
             {/* Action Buttons */}
@@ -111,17 +111,17 @@ export default function Home() {
                 </p>
               </div>
               <div>
-                <p className="text-xs text-zinc-400">Avg Settlement</p>
+                <p className="text-xs text-zinc-400">Settlement</p>
                 <p className="text-sm font-bold text-white mt-0.5 flex items-center gap-1.5">
                   <Zap className="h-3.5 w-3.5 text-cyan-400" />
                   &lt;1 Second
                 </p>
               </div>
               <div>
-                <p className="text-xs text-zinc-400">Treasurer Risk</p>
+                <p className="text-xs text-zinc-400">Security</p>
                 <p className="text-sm font-bold text-emerald-400 mt-0.5 flex items-center gap-1.5">
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  0% (Immutable)
+                  100% On-Chain
                 </p>
               </div>
             </div>
@@ -207,119 +207,141 @@ export default function Home() {
 
       {/* 3 Core Technical Edges Section */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 border-t border-white/[0.08]">
-        <div className="text-center max-w-3xl mx-auto mb-12">
+        <div className="text-center max-w-2xl mx-auto mb-12">
           <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Architectural Advantage</span>
-          <h2 className="mt-2 text-3xl sm:text-4xl font-extrabold text-white">
+          <h2 className="mt-2 text-3xl font-extrabold text-white">
             Built Specifically for Arc Mainnet
           </h2>
-          <p className="mt-3 text-sm sm:text-base text-zinc-400">
-            Traditional Web3 dApps force users through friction-filled bridging loops. GScoop leverages Arc's protocol innovations to provide a seamless fintech experience.
+          <p className="mt-2 text-sm text-zinc-400">
+            Frictionless collaborative finance with sub-cent gas fees and instant settlement.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
           {/* Edge 1 */}
-          <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-6 space-y-4 hover:border-emerald-500/30 transition-all group">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 group-hover:scale-110 transition-transform">
-              <Coins className="h-6 w-6" />
+          <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-6 space-y-3 hover:border-emerald-500/30 transition-all">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <Coins className="h-5 w-5" />
             </div>
-            <h3 className="text-lg font-bold text-white">Native USDC Gas Token</h3>
+            <h3 className="text-base font-bold text-white">Native USDC Gas Token</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              USDC is the native gas asset on Arc Mainnet (18 decimals). Users never hear the word "gas token" or have to bridge ETH. Savings deposits and network fees are 100% dollar-denominated.
+              USDC is the protocol-level gas token on Arc. Deposits and ~$0.005 network fees are 100% dollar-denominated with zero token bridging.
             </p>
-            <div className="pt-2 text-[11px] font-mono text-emerald-400 flex items-center gap-1">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>Zero-token-bridging onboarding</span>
-            </div>
           </div>
 
           {/* Edge 2 */}
-          <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-6 space-y-4 hover:border-cyan-500/30 transition-all group">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 group-hover:scale-110 transition-transform">
-              <RefreshCw className="h-6 w-6" />
+          <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-6 space-y-3 hover:border-cyan-500/30 transition-all">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+              <RefreshCw className="h-5 w-5" />
             </div>
-            <h3 className="text-lg font-bold text-white">Trust-Minimized State Machine</h3>
+            <h3 className="text-base font-bold text-white">Automated State Machine</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Replaces the traditional human treasurer with <code className="text-zinc-200">GScoopVault.sol</code>. Payout queues are immutable, mathematically rotated (<code className="text-zinc-200">cycle % queue.length</code>), and instant.
+              Eliminates treasurer fraud. Member queues are immutable FIFO state machines with deterministic, instant payouts every cycle.
             </p>
-            <div className="pt-2 text-[11px] font-mono text-cyan-400 flex items-center gap-1">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>Guaranteed automated rotation</span>
-            </div>
           </div>
 
           {/* Edge 3 */}
-          <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-6 space-y-4 hover:border-amber-500/30 transition-all group">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 group-hover:scale-110 transition-transform">
-              <Zap className="h-6 w-6" />
+          <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-6 space-y-3 hover:border-amber-500/30 transition-all">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+              <Zap className="h-5 w-5" />
             </div>
-            <h3 className="text-lg font-bold text-white">Sub-Second Deterministic Finality</h3>
+            <h3 className="text-base font-bold text-white">Sub-Second Finality</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              No more waiting 2-5 minutes for blocks to confirm or polling balances in a loop. Arc confirms transactions with deterministic finality in fractions of a second.
+              Transactions settle in fractions of a second with deterministic finality on Arc Mainnet, eliminating confirmation lag.
             </p>
-            <div className="pt-2 text-[11px] font-mono text-amber-400 flex items-center gap-1">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>Instant UI state updates</span>
-            </div>
           </div>
 
         </div>
       </section>
 
-      {/* Comparison Table: Traditional vs Standard Web3 vs GScoop */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-white/[0.1] bg-[#101014] p-8 shadow-2xl">
-          <div className="text-center max-w-2xl mx-auto mb-8">
-            <h3 className="text-2xl font-bold text-white">The Savings Paradigm Evolution</h3>
-            <p className="text-xs text-zinc-400 mt-2">Why GScoop on Arc is the future of collaborative community finance.</p>
+      {/* Modern 3-Column Comparative Feature Breakdown */}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 border-t border-white/[0.08]">
+        <div className="text-center max-w-2xl mx-auto mb-10">
+          <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Comparison</span>
+          <h2 className="mt-2 text-2xl sm:text-3xl font-extrabold text-white">
+            The Savings Paradigm Evolution
+          </h2>
+          <p className="mt-2 text-xs text-zinc-400">
+            Why smart contract cooperatives on Arc outperform offline groups and legacy dApps.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Traditional */}
+          <div className="rounded-2xl border border-white/[0.08] bg-[#101014] p-6 space-y-4">
+            <div className="inline-flex rounded-full bg-rose-500/10 border border-rose-500/20 px-3 py-1 text-xs font-bold text-rose-400">
+              Traditional Savings Groups
+            </div>
+            <ul className="space-y-3 text-xs text-zinc-400">
+              <li className="flex items-start gap-2">
+                <span className="text-rose-400 font-bold">✕</span>
+                <span>Human organizer theft and default risks</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-rose-400 font-bold">✕</span>
+                <span>Manual cash handling or high bank transfer fees</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-rose-400 font-bold">✕</span>
+                <span>Idle funds earn zero interest</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-rose-400 font-bold">✕</span>
+                <span>Hard capped at 5-10 members due to bookkeeping</span>
+              </li>
+            </ul>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead>
-                <tr className="border-b border-white/[0.08] text-zinc-400 font-medium">
-                  <th className="py-3 px-4">Feature</th>
-                  <th className="py-3 px-4 text-rose-400">Traditional Savings Group</th>
-                  <th className="py-3 px-4 text-amber-400">Standard Web3 dApp</th>
-                  <th className="py-3 px-4 text-emerald-400 font-bold bg-emerald-500/5 rounded-t-xl">GScoop on Arc</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.05] text-zinc-300">
-                <tr>
-                  <td className="py-4 px-4 font-semibold text-white">Gas / Onboarding Friction</td>
-                  <td className="py-4 px-4 text-zinc-400">Physical cash / Bank transfers</td>
-                  <td className="py-4 px-4 text-amber-300/80">Must buy ETH, bridge tokens, calculate gwei</td>
-                  <td className="py-4 px-4 font-semibold text-emerald-400 bg-emerald-500/5">
-                    Native USDC only (No separate gas token)
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-4 px-4 font-semibold text-white">Custody & Treasurer Risk</td>
-                  <td className="py-4 px-4 text-rose-400">High (Human organizer can steal or flee)</td>
-                  <td className="py-4 px-4 text-zinc-400">Contract-based, but complex approvals</td>
-                  <td className="py-4 px-4 font-semibold text-emerald-400 bg-emerald-500/5">
-                    Immutable Queue + Reentrancy Guard
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-4 px-4 font-semibold text-white">Settlement Speed</td>
-                  <td className="py-4 px-4 text-zinc-400">Days / Manual collection</td>
-                  <td className="py-4 px-4 text-zinc-400">12 - 60 seconds (Variable gas congestion)</td>
-                  <td className="py-4 px-4 font-semibold text-emerald-400 bg-emerald-500/5">
-                    Sub-second deterministic finality
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-4 px-4 font-semibold text-white">Fee Denomination</td>
-                  <td className="py-4 px-4 text-zinc-400">High banking wire / ATM fees</td>
-                  <td className="py-4 px-4 text-zinc-400">Fluctuating Gwei / Volatile crypto</td>
-                  <td className="py-4 px-4 font-semibold text-emerald-400 bg-emerald-500/5 rounded-b-xl">
-                    Exact cents ($0.005 in USDC)
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          {/* Standard Web3 */}
+          <div className="rounded-2xl border border-white/[0.08] bg-[#101014] p-6 space-y-4">
+            <div className="inline-flex rounded-full bg-amber-500/10 border border-amber-500/20 px-3 py-1 text-xs font-bold text-amber-400">
+              Standard Web3 dApps
+            </div>
+            <ul className="space-y-3 text-xs text-zinc-400">
+              <li className="flex items-start gap-2">
+                <span className="text-amber-400 font-bold">✕</span>
+                <span>Must acquire ETH, bridge tokens, and calculate gwei</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-amber-400 font-bold">✕</span>
+                <span>Volatile gas spikes make small deposits uneconomical</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-amber-400 font-bold">✕</span>
+                <span>15-60 second block wait times</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-amber-400 font-bold">✕</span>
+                <span>Complex UX alienates non-crypto users</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* GScoop on Arc */}
+          <div className="relative rounded-2xl border border-emerald-500/40 bg-gradient-to-b from-emerald-950/20 to-[#121216] p-6 space-y-4 shadow-xl shadow-emerald-500/5">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-xs font-bold text-emerald-300">
+              <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+              <span>GScoop on Arc Mainnet</span>
+            </div>
+            <ul className="space-y-3 text-xs text-zinc-200">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span><strong>Native USDC Gas</strong> — Deposit & pay fees in pure USDC</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span><strong>Sub-Second Finality</strong> — Immediate pot settlements</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span><strong>5.2% Float Yield</strong> — Idle funds earn interest</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span><strong>Turn Borrowing</strong> — Borrow up to 75% before your turn</span>
+              </li>
+            </ul>
           </div>
         </div>
       </section>
