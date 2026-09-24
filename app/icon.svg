@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="bgGrad" cx="30%" cy="20%" r="90%">
+      <stop offset="0%" stop-color="#182226" />
+      <stop offset="60%" stop-color="#0a0e12" />
+      <stop offset="100%" stop-color="#040608" />
+    </radialGradient>
+
+    <!-- Border Gradient -->
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" stop-opacity="0.8" />
+      <stop offset="50%" stop-color="#10b981" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.8" />
+    </linearGradient>
+
+    <!-- Brand Arc Gradient -->
+    <linearGradient id="gScoopGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="40%" stop-color="#10b981" />
+      <stop offset="85%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+
+    <!-- Coin / Spark Gradient -->
+    <radialGradient id="sparkGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#a7f3d0" />
+      <stop offset="55%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#059669" />
+    </radialGradient>
+
+    <!-- Subtle Glow Filter -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base Canvas -->
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="12" />
+
+  <!-- GScoop Rotating Loop "G" -->
+  <path d="M 344 168 A 125 125 0 1 0 381 256 L 256 256"
+        fill="none"
+        stroke="url(#gScoopGrad)"
+        stroke-width="44"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        filter="url(#glow)" />
+
+  <!-- Dynamic Rotating Coin Node (completing the cooperative loop cycle) -->
+  <circle cx="354" cy="158" r="28" fill="url(#sparkGrad)" filter="url(#glow)" />
+  <circle cx="354" cy="158" r="14" fill="#ffffff" opacity="0.75" />
+</svg>
