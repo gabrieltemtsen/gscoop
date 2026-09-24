@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { getStoredVaults, CoopVaultData } from '@/lib/vaultStore';
+import { fetchAllOnChainVaults } from '@/lib/onChainVaults';
+import { FACTORY_ADDRESS } from '@/lib/contracts';
 import { VaultCard } from '@/components/VaultCard';
 import { formatUnits } from 'viem';
 import { 
@@ -14,7 +16,8 @@ import {
   ShieldCheck, 
   Zap,
   TrendingUp,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -25,11 +28,23 @@ export default function ExplorePage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'payout_ready'>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const loadVaults = () => {
+  const loadVaults = async () => {
     setIsRefreshing(true);
-    const data = getStoredVaults();
-    setVaults(data);
-    setTimeout(() => setIsRefreshing(false), 400);
+    try {
+      const onChainData = await fetchAllOnChainVaults();
+      if (onChainData && onChainData.length > 0) {
+        setVaults(onChainData);
+      } else {
+        const data = getStoredVaults();
+        setVaults(data);
+      }
+    } catch (err) {
+      console.warn('On-chain read error, using fallback:', err);
+      const data = getStoredVaults();
+      setVaults(data);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -78,8 +93,17 @@ export default function ExplorePage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-white/[0.08]">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-0.5 text-xs font-semibold text-emerald-400 mb-2">
-            <Coins className="h-3.5 w-3.5" />
-            <span>Arc Mainnet Vault Registry</span>
+            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Arc Mainnet On-Chain Registry</span>
+            <a
+              href={`https://explorer.arc.io/address/${FACTORY_ADDRESS}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] text-zinc-400 hover:text-white font-mono transition-colors"
+            >
+              <span>{FACTORY_ADDRESS.slice(0, 6)}...{FACTORY_ADDRESS.slice(-4)}</span>
+              <ExternalLink className="h-3 w-3" />
+            </a>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
             Explore Cooperative Pools

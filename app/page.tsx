@@ -17,6 +17,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { getStoredVaults } from '@/lib/vaultStore';
+import { fetchAllOnChainVaults, SHOWCASE_VAULT_ADDRESS } from '@/lib/onChainVaults';
 import { VaultCard } from '@/components/VaultCard';
 import { useEffect, useState } from 'react';
 
@@ -24,8 +25,28 @@ export default function Home() {
   const [featuredVaults, setFeaturedVaults] = useState<any[]>([]);
 
   useEffect(() => {
-    const vaults = getStoredVaults();
-    setFeaturedVaults(vaults.slice(0, 3));
+    let isMounted = true;
+    async function loadVaults() {
+      try {
+        const liveVaults = await fetchAllOnChainVaults();
+        if (isMounted) {
+          if (liveVaults.length > 0) {
+            setFeaturedVaults(liveVaults.slice(0, 3));
+          } else {
+            setFeaturedVaults(getStoredVaults().slice(0, 3));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load on-chain vaults for home page:', err);
+        if (isMounted) {
+          setFeaturedVaults(getStoredVaults().slice(0, 3));
+        }
+      }
+    }
+    loadVaults();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
@@ -125,22 +146,22 @@ export default function Home() {
               <div className="mt-5 space-y-4">
                 <div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-zinc-400">Cooperative Name</span>
+                    <span className="text-xs text-zinc-400">Deployed Vault</span>
                     <span className="text-xs text-emerald-400 font-mono">Chain ID: 5042</span>
                   </div>
-                  <h3 className="text-xl font-bold text-white mt-0.5">Synergy Alpha Circle</h3>
+                  <h3 className="text-xl font-bold text-white mt-0.5">Arc Global Synergy Alpha</h3>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 rounded-2xl bg-black/50 p-4 border border-white/[0.06]">
                   <div>
                     <span className="text-[11px] text-zinc-400">Cycle Payout Pot</span>
                     <p className="text-xl font-extrabold text-emerald-400 font-mono mt-0.5">$250.00</p>
-                    <span className="text-[10px] text-zinc-400">5 members × $50</span>
+                    <span className="text-[10px] text-zinc-400">5 spots × $50 USDC</span>
                   </div>
                   <div>
                     <span className="text-[11px] text-zinc-400">Estimated Gas Fee</span>
                     <p className="text-xl font-extrabold text-cyan-400 font-mono mt-0.5">~$0.005</p>
-                    <span className="text-[10px] text-zinc-400">Deducted in USDC</span>
+                    <span className="text-[10px] text-zinc-400">Native USDC Gas</span>
                   </div>
                 </div>
 
@@ -148,32 +169,32 @@ export default function Home() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs text-zinc-400">
                     <span>Queue Rotation</span>
-                    <span className="text-emerald-400 font-medium">Turn #2 Active</span>
+                    <span className="text-emerald-400 font-medium">Verified On-Chain</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 rounded-xl bg-emerald-500/20 border border-emerald-500/30 p-2.5 text-center">
-                      <span className="block text-[10px] text-zinc-400">Paid Cycle 1</span>
-                      <span className="font-mono text-xs text-white font-semibold">0xA11C...</span>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-zinc-400" />
                     <div className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 border border-emerald-400/50 p-2.5 text-center shadow-lg shadow-emerald-500/10">
-                      <span className="block text-[10px] text-emerald-300 font-semibold">Beneficiary Now</span>
-                      <span className="font-mono text-xs text-emerald-300 font-bold">0xB0B2...</span>
+                      <span className="block text-[10px] text-emerald-300 font-semibold">Beneficiary #1</span>
+                      <span className="font-mono text-xs text-emerald-300 font-bold">0x6268...</span>
                     </div>
                     <ChevronRight className="h-4 w-4 text-zinc-400" />
                     <div className="flex-1 rounded-xl bg-white/[0.03] border border-white/[0.06] p-2.5 text-center">
-                      <span className="block text-[10px] text-zinc-400">Next Turn</span>
-                      <span className="font-mono text-xs text-zinc-400">0xCAFE...</span>
+                      <span className="block text-[10px] text-zinc-400">Spot #2</span>
+                      <span className="font-mono text-xs text-zinc-400">Open Queue</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-zinc-400" />
+                    <div className="flex-1 rounded-xl bg-white/[0.03] border border-white/[0.06] p-2.5 text-center">
+                      <span className="block text-[10px] text-zinc-400">Spot #3</span>
+                      <span className="font-mono text-xs text-zinc-400">Open Queue</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="pt-3">
                   <Link
-                    href="/explore"
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.08] py-2.5 text-xs font-semibold text-white hover:bg-white/[0.15] transition-all"
+                    href={`/vault/${SHOWCASE_VAULT_ADDRESS}`}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-2.5 text-xs font-semibold text-black hover:opacity-95 transition-all shadow-md shadow-emerald-500/20"
                   >
-                    <span>View All Active Cooperatives</span>
+                    <span>Enter Live Showcase Vault</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>

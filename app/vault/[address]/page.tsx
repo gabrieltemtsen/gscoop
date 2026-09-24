@@ -4,7 +4,9 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useAccount, useWriteContract, useBalance } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { getVaultByAddress, saveVault, CoopVaultData } from '@/lib/vaultStore';
+import { getVaultByAddress, saveVault, CoopVaultData, AutoSaveMandateData } from '@/lib/vaultStore';
+import { fetchOnChainVault, fetchUserOnChainStatus } from '@/lib/onChainVaults';
+import { publicClient } from '@/lib/publicClient';
 import { formatAddress, formatDuration, formatTimeRemaining, formatUSDC } from '@/lib/utils';
 import { arcMainnet } from '@/lib/arcChain';
 import { GSCOOP_VAULT_ABI } from '@/lib/contracts';
@@ -72,46 +74,45 @@ export default function VaultDashboardPage() {
   const [isSettingUpAutoSave, setIsSettingUpAutoSave] = useState(false);
   const [isCancellingAutoSave, setIsCancellingAutoSave] = useState(false);
   const [isExecutingDebit, setIsExecutingDebit] = useState(false);
+  const [isLoadingOnChain, setIsLoadingOnChain] = useState(true);
+  const [onChainUserStatus, setOnChainUserStatus] = useState<{
+    hasDeposited: boolean;
+    debt: bigint;
+    advance: bigint;
+    booster: bigint;
+    shares: number;
+    autoSave: AutoSaveMandateData | null;
+  } | null>(null);
 
-  // Load vault data
-  const loadVaultData = () => {
-    const data = getVaultByAddress(vaultAddress);
-    if (data) {
-      setVault(data);
-    } else {
-      const fallback: CoopVaultData = {
-        address: rawAddress as `0x${string}`,
-        name: 'Arc Community Vault',
-        description: 'Decentralized rotating savings cooperative on Arc Mainnet.',
-        contributionAmount: parseUnits('50', 18),
-        cycleDuration: BigInt(7 * 24 * 3600),
-        cycleDeadline: BigInt(Math.floor(Date.now() / 1000) + 2 * 24 * 3600),
-        currentCycle: BigInt(0),
-        balance: BigInt(0),
-        memberCount: BigInt(2),
-        maxMembers: BigInt(5),
-        cycleDeposits: BigInt(0),
-        beneficiary: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-        creator: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-        members: [
-          '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-        ],
-        createdAt: Date.now(),
-        yieldEnabled: true,
-        yieldApy: 5.2,
-        accruedYield: parseUnits('6.50', 18),
-        reserveFund: parseUnits('100', 18),
-        currentHighestBid: null,
-        activeDebts: {},
-      };
-      setVault(fallback);
+  // Load vault data directly on-chain from Arc Mainnet
+  const loadVaultData = async () => {
+    setIsLoadingOnChain(true);
+    try {
+      const liveVault = await fetchOnChainVault(rawAddress as `0x${string}`);
+      if (liveVault) {
+        setVault(liveVault);
+        if (userAddress) {
+          const userStatus = await fetchUserOnChainStatus(rawAddress as `0x${string}`, userAddress, liveVault.currentCycle);
+          setOnChainUserStatus(userStatus);
+        }
+      } else {
+        const stored = getVaultByAddress(vaultAddress);
+        if (stored) {
+          setVault(stored);
+        }
+      }
+    } catch (err) {
+      console.warn('Error loading on-chain vault:', err);
+      const stored = getVaultByAddress(vaultAddress);
+      if (stored) setVault(stored);
+    } finally {
+      setIsLoadingOnChain(false);
     }
   };
 
   useEffect(() => {
     loadVaultData();
-  }, [vaultAddress]);
+  }, [vaultAddress, userAddress]);
 
   // Real-time Countdown timer
   const [timeInfo, setTimeInfo] = useState<{ formatted: string; isExpired: boolean; secondsRemaining: number }>({
@@ -137,13 +138,14 @@ export default function VaultDashboardPage() {
   }, [userAddress, vault]);
 
   const hasUserDepositedForCycle = useMemo(() => {
+    if (onChainUserStatus?.hasDeposited) return true;
     if (!userAddress || !vault) return false;
     const depositKey = `deposited_${vault.address}_${vault.currentCycle}_${userAddress.toLowerCase()}`;
     if (typeof window !== 'undefined') {
       return localStorage.getItem(depositKey) === 'true';
     }
     return false;
-  }, [userAddress, vault]);
+  }, [userAddress, vault, onChainUserStatus]);
 
   // Member turn position in queue
   const userQueueIndex = useMemo(() => {
@@ -153,10 +155,13 @@ export default function VaultDashboardPage() {
 
   // Active debt for current user
   const userActiveDebt = useMemo(() => {
+    if (onChainUserStatus?.debt && onChainUserStatus.debt > BigInt(0)) {
+      return onChainUserStatus.debt;
+    }
     if (!userAddress || !vault?.activeDebts) return BigInt(0);
     const raw = vault.activeDebts[userAddress.toLowerCase()];
     return raw ? BigInt(raw) : BigInt(0);
-  }, [userAddress, vault]);
+  }, [userAddress, vault, onChainUserStatus]);
 
   // Cooperative Season & Cycle Position Calculations
   const currentSeason = useMemo(() => {
@@ -170,26 +175,38 @@ export default function VaultDashboardPage() {
   }, [vault]);
 
   const userAdvanceBalance = useMemo(() => {
+    if (onChainUserStatus?.advance && onChainUserStatus.advance > BigInt(0)) {
+      return onChainUserStatus.advance;
+    }
     if (!userAddress || !vault?.advanceBalances) return BigInt(0);
     const raw = vault.advanceBalances[userAddress.toLowerCase()];
     return raw ? BigInt(raw) : BigInt(0);
-  }, [userAddress, vault]);
+  }, [userAddress, vault, onChainUserStatus]);
 
   const userBoosterSavings = useMemo(() => {
+    if (onChainUserStatus?.booster && onChainUserStatus.booster > BigInt(0)) {
+      return onChainUserStatus.booster;
+    }
     if (!userAddress || !vault?.boosterBalances) return BigInt(0);
     const raw = vault.boosterBalances[userAddress.toLowerCase()];
     return raw ? BigInt(raw) : BigInt(0);
-  }, [userAddress, vault]);
+  }, [userAddress, vault, onChainUserStatus]);
 
   const userShares = useMemo(() => {
+    if (onChainUserStatus?.shares && onChainUserStatus.shares > 1) {
+      return onChainUserStatus.shares;
+    }
     if (!userAddress || !vault?.memberShares) return 1;
     return vault.memberShares[userAddress.toLowerCase()] || 1;
-  }, [userAddress, vault]);
+  }, [userAddress, vault, onChainUserStatus]);
 
   const userAutoSave = useMemo(() => {
+    if (onChainUserStatus?.autoSave) {
+      return onChainUserStatus.autoSave;
+    }
     if (!userAddress || !vault?.autoSaveMandates) return null;
     return vault.autoSaveMandates[userAddress.toLowerCase()] || null;
-  }, [userAddress, vault]);
+  }, [userAddress, vault, onChainUserStatus]);
 
   // Beneficiary for current cycle (accounts for winning auction bid!)
   const currentBeneficiary = useMemo(() => {
@@ -239,43 +256,30 @@ export default function VaultDashboardPage() {
   // 1. Join Pool Handler
   const handleJoin = async () => {
     if (!vault) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet (Chain ID: 5042) to join this cooperative.');
+      return;
+    }
     setIsJoining(true);
 
     try {
-      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
-
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'joinPool',
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain join fallback to simulated state', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'joinPool',
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      const updatedMembers = [...vault.members];
-      if (!updatedMembers.some((m) => m.toLowerCase() === activeUser.toLowerCase())) {
-        updatedMembers.push(activeUser);
-      }
-
-      const updatedVault: CoopVaultData = {
-        ...vault,
-        members: updatedMembers,
-        memberCount: BigInt(updatedMembers.length),
-      };
-
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
-      setActionSuccessMessage('Successfully joined the cooperative queue!');
+      setActionSuccessMessage('Successfully joined the cooperative queue on Arc Mainnet!');
       setTimeout(() => setActionSuccessMessage(null), 4000);
     } catch (err: any) {
       console.error(err);
-      alert('Could not join pool: ' + (err?.message || 'Error'));
+      alert('Could not join pool: ' + (err?.shortMessage || err?.message || 'Error'));
     } finally {
       setIsJoining(false);
     }
@@ -284,92 +288,38 @@ export default function VaultDashboardPage() {
   // 2. Deposit Contribution Handler (Native USDC on Arc)
   const handleDeposit = async () => {
     if (!vault) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet (Chain ID: 5042) to deposit.');
+      return;
+    }
     setIsDepositing(true);
 
     try {
-      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
-
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'deposit',
-            value: vault.contributionAmount,
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain deposit fallback to simulated state', e);
-        }
-      }
-
-      const newDeposits = vault.cycleDeposits + BigInt(1);
-      const newBalance = vault.balance + vault.contributionAmount;
-      const shouldAutoSettle = vault.memberCount > 0 && newDeposits >= vault.memberCount;
-
-      let updatedVault: CoopVaultData;
-
-      if (shouldAutoSettle) {
-        const nextCycle = vault.currentCycle + BigInt(1);
-        const nextBeneficiaryIndex = Number(nextCycle) % vault.members.length;
-        
-        // Check if beneficiary has debt to garnish
-        const targetBeneficiary = currentBeneficiary.toLowerCase();
-        const existingDebt = vault.activeDebts?.[targetBeneficiary] ? BigInt(vault.activeDebts[targetBeneficiary]) : BigInt(0);
-        let updatedDebts = { ...(vault.activeDebts || {}) };
-        let updatedReserve = vault.reserveFund;
-        let netPayoutAmount = newBalance;
-
-        if (existingDebt > BigInt(0)) {
-          if (newBalance >= existingDebt) {
-            netPayoutAmount = newBalance - existingDebt;
-            updatedReserve += existingDebt;
-            delete updatedDebts[targetBeneficiary];
-          } else {
-            updatedReserve += newBalance;
-            updatedDebts[targetBeneficiary] = (existingDebt - newBalance).toString();
-            netPayoutAmount = BigInt(0);
-          }
-        }
-
-        updatedVault = {
-          ...vault,
-          currentCycle: nextCycle,
-          balance: BigInt(0),
-          cycleDeposits: BigInt(0),
-          reserveFund: updatedReserve,
-          activeDebts: updatedDebts,
-          currentHighestBid: null,
-          cycleDeadline: BigInt(Math.floor(Date.now() / 1000) + Number(vault.cycleDuration)),
-          beneficiary: vault.members[nextBeneficiaryIndex],
-        };
-
-        setActionSuccessMessage(
-          `Instant Settlement! Pot disbursed to ${formatAddress(currentBeneficiary)}. ${existingDebt > BigInt(0) ? `(Auto-garnished $${formatUSDC(existingDebt)} USDC debt)` : ''}`
-        );
-      } else {
-        updatedVault = {
-          ...vault,
-          balance: newBalance,
-          cycleDeposits: newDeposits,
-        };
-        setActionSuccessMessage(
-          `Deposit verified! $${formatUSDC(vault.contributionAmount)} USDC deposited. Network fee: ~$0.005 USDC.`
-        );
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'deposit',
+          value: vault.contributionAmount,
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
       if (typeof window !== 'undefined') {
-        const depositKey = `deposited_${vault.address}_${vault.currentCycle}_${activeUser.toLowerCase()}`;
+        const depositKey = `deposited_${vault.address}_${vault.currentCycle}_${userAddress.toLowerCase()}`;
         localStorage.setItem(depositKey, 'true');
       }
 
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
+      setActionSuccessMessage(
+        `Deposit confirmed on Arc Mainnet! $${formatUSDC(vault.contributionAmount)} USDC deposited.`
+      );
       setTimeout(() => setActionSuccessMessage(null), 5000);
     } catch (err: any) {
       console.error(err);
-      alert('Deposit error: ' + (err?.message || 'Transaction failed'));
+      alert('Deposit error: ' + (err?.shortMessage || err?.message || 'Transaction failed'));
     } finally {
       setIsDepositing(false);
     }
@@ -380,52 +330,36 @@ export default function VaultDashboardPage() {
     if (!vault) return;
     const borrowVal = parseFloat(borrowInput) || 0;
     if (borrowVal <= 0) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet to borrow against your turn.');
+      return;
+    }
 
     setIsBorrowing(true);
 
     try {
-      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
       const borrowWei = parseUnits(borrowInput, 18);
 
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'borrowAgainstTurn',
-            args: [borrowWei],
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain borrow fallback', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'borrowAgainstTurn',
+          args: [borrowWei],
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      // Calculate 2% fee
-      const feeWei = (borrowWei * BigInt(2)) / BigInt(100);
-      const totalDebt = borrowWei + feeWei;
-
-      const updatedDebts = {
-        ...(vault.activeDebts || {}),
-        [activeUser.toLowerCase()]: totalDebt.toString(),
-      };
-
-      const updatedVault: CoopVaultData = {
-        ...vault,
-        reserveFund: vault.reserveFund > borrowWei ? vault.reserveFund - borrowWei : BigInt(0),
-        activeDebts: updatedDebts,
-      };
-
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
       setActionSuccessMessage(
-        `Liquidity Disbursed! $${borrowVal.toFixed(2)} USDC sent to your wallet. Fixed 2% fee ($${formatUSDC(feeWei)} USDC) credited to cooperative reserve.`
+        `Liquidity Disbursed on Arc! $${borrowVal.toFixed(2)} USDC sent to your wallet.`
       );
       setTimeout(() => setActionSuccessMessage(null), 6000);
     } catch (err: any) {
       console.error(err);
-      alert('Borrowing error: ' + (err?.message || 'Failed to borrow'));
+      alert('Borrowing error: ' + (err?.shortMessage || err?.message || 'Failed to borrow'));
     } finally {
       setIsBorrowing(false);
     }
@@ -434,42 +368,31 @@ export default function VaultDashboardPage() {
   // 4. Early Loan Repayment Handler
   const handleRepay = async () => {
     if (!vault || userActiveDebt === BigInt(0)) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet to repay your loan.');
+      return;
+    }
     setIsRepaying(true);
 
     try {
-      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
-
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'repayLoan',
-            value: userActiveDebt,
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain repay fallback', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'repayLoan',
+          value: userActiveDebt,
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      const updatedDebts = { ...(vault.activeDebts || {}) };
-      delete updatedDebts[activeUser.toLowerCase()];
-
-      const updatedVault: CoopVaultData = {
-        ...vault,
-        reserveFund: vault.reserveFund + userActiveDebt,
-        activeDebts: updatedDebts,
-      };
-
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
-      setActionSuccessMessage('Loan fully repaid early! Your upcoming cycle payout will be received in full.');
+      setActionSuccessMessage('Loan fully repaid on Arc Mainnet! Your upcoming cycle payout will be received in full.');
       setTimeout(() => setActionSuccessMessage(null), 5000);
     } catch (err: any) {
       console.error(err);
-      alert('Repay error: ' + (err?.message || 'Payment failed'));
+      alert('Repay error: ' + (err?.shortMessage || err?.message || 'Payment failed'));
     } finally {
       setIsRepaying(false);
     }
@@ -480,45 +403,36 @@ export default function VaultDashboardPage() {
     if (!vault) return;
     const bidVal = parseFloat(bidInput) || 0;
     if (bidVal <= 0) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet to place an auction bid.');
+      return;
+    }
 
     setIsBidding(true);
 
     try {
-      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
       const bidWei = parseUnits(bidInput, 18);
 
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'submitTurnBid',
-            args: [bidWei],
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain bid fallback', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'submitTurnBid',
+          args: [bidWei],
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      const updatedVault: CoopVaultData = {
-        ...vault,
-        currentHighestBid: {
-          bidder: activeUser,
-          discountAmount: bidWei,
-        },
-      };
-
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
       setActionSuccessMessage(
-        `Turn Bid Accepted! You are now the winning bidder. You will receive the payout pot minus your $${bidVal.toFixed(2)} USDC discount.`
+        `Turn Bid Accepted! You are now the winning bidder with a $${bidVal.toFixed(2)} USDC discount bid.`
       );
       setTimeout(() => setActionSuccessMessage(null), 6000);
     } catch (err: any) {
       console.error(err);
-      alert('Auction bid error: ' + (err?.message || 'Bid rejected'));
+      alert('Auction bid error: ' + (err?.shortMessage || err?.message || 'Bid rejected'));
     } finally {
       setIsBidding(false);
     }
@@ -527,36 +441,30 @@ export default function VaultDashboardPage() {
   // 6. Harvest Yield Handler
   const handleHarvestYield = async () => {
     if (!vault) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet to harvest yield.');
+      return;
+    }
     setIsHarvesting(true);
 
     try {
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'harvestYield',
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain harvest fallback', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'harvestYield',
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      const yieldBoost = parseUnits('2.50', 18);
-      const updatedVault: CoopVaultData = {
-        ...vault,
-        accruedYield: (vault.accruedYield || BigInt(0)) + yieldBoost,
-        reserveFund: vault.reserveFund + yieldBoost,
-      };
-
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
-      setActionSuccessMessage('Yield Harvested! +$2.50 USDC compounded into cooperative reserve fund.');
+      setActionSuccessMessage('Yield Harvested on Arc Mainnet! Compounded into cooperative reserve fund.');
       setTimeout(() => setActionSuccessMessage(null), 5000);
     } catch (err: any) {
       console.error(err);
+      alert('Harvest yield error: ' + (err?.shortMessage || err?.message || 'Harvest failed'));
     } finally {
       setIsHarvesting(false);
     }
@@ -565,57 +473,32 @@ export default function VaultDashboardPage() {
   // 7. Distribute Payout Handler
   const handleDistributePayout = async () => {
     if (!vault) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet to distribute payout.');
+      return;
+    }
     setIsDistributing(true);
 
     try {
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'distributePayout',
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain distributePayout fallback', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'distributePayout',
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      const payoutAmount = vault.balance;
-      const paidBeneficiary = currentBeneficiary;
-      const nextCycle = vault.currentCycle + BigInt(1);
-      const nextBeneficiaryIndex = Number(nextCycle) % vault.members.length;
-
-      // Automated debt garnishment check
-      const debtToGarnish = vault.activeDebts?.[paidBeneficiary.toLowerCase()]
-        ? BigInt(vault.activeDebts[paidBeneficiary.toLowerCase()])
-        : BigInt(0);
-
-      const updatedDebts = { ...(vault.activeDebts || {}) };
-      delete updatedDebts[paidBeneficiary.toLowerCase()];
-
-      const updatedVault: CoopVaultData = {
-        ...vault,
-        currentCycle: nextCycle,
-        balance: BigInt(0),
-        cycleDeposits: BigInt(0),
-        reserveFund: vault.reserveFund + debtToGarnish,
-        activeDebts: updatedDebts,
-        currentHighestBid: null,
-        cycleDeadline: BigInt(Math.floor(Date.now() / 1000) + Number(vault.cycleDuration)),
-        beneficiary: vault.members[nextBeneficiaryIndex],
-      };
-
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
       setActionSuccessMessage(
-        `Payout Distributed! Pot transferred to beneficiary ${formatAddress(paidBeneficiary)}! ${debtToGarnish > BigInt(0) ? `(Auto-garnished $${formatUSDC(debtToGarnish)} USDC debt)` : ''}`
+        `Payout Distributed! Pot transferred to beneficiary on Arc Mainnet!`
       );
       setTimeout(() => setActionSuccessMessage(null), 6000);
     } catch (err: any) {
       console.error(err);
-      alert('Payout error: ' + (err?.message || 'Could not distribute'));
+      alert('Payout error: ' + (err?.shortMessage || err?.message || 'Could not distribute'));
     } finally {
       setIsDistributing(false);
     }
@@ -626,46 +509,33 @@ export default function VaultDashboardPage() {
     if (!vault) return;
     const val = parseFloat(advanceInput) || 0;
     if (val <= 0) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet to buffer advance deposits.');
+      return;
+    }
     setIsAdvancing(true);
 
     try {
-      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
       const advWei = parseUnits(advanceInput, 18);
 
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'depositAdvance',
-            value: advWei,
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain advance fallback', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'depositAdvance',
+          value: advWei,
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      const currentAdv = vault.advanceBalances?.[activeUser.toLowerCase()] ? BigInt(vault.advanceBalances[activeUser.toLowerCase()]) : BigInt(0);
-      const updatedAdvances = {
-        ...(vault.advanceBalances || {}),
-        [activeUser.toLowerCase()]: (currentAdv + advWei).toString(),
-      };
-
-      const updatedVault: CoopVaultData = {
-        ...vault,
-        balance: vault.balance + advWei,
-        advanceBalances: updatedAdvances,
-      };
-
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
-      setActionSuccessMessage(`Advance Pre-Funded! $${val.toFixed(2)} USDC buffered. Upcoming cycles will auto-draw without missing deadlines.`);
+      setActionSuccessMessage(`Advance Pre-Funded! $${val.toFixed(2)} USDC buffered on Arc Mainnet.`);
       setTimeout(() => setActionSuccessMessage(null), 5000);
     } catch (err: any) {
       console.error(err);
-      alert('Advance error: ' + (err?.message || 'Transaction failed'));
+      alert('Advance error: ' + (err?.shortMessage || err?.message || 'Transaction failed'));
     } finally {
       setIsAdvancing(false);
     }
@@ -676,46 +546,33 @@ export default function VaultDashboardPage() {
     if (!vault) return;
     const val = parseFloat(boosterInput) || 0;
     if (val <= 0) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet to deposit booster savings.');
+      return;
+    }
     setIsBoosterDepositing(true);
 
     try {
-      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
       const valWei = parseUnits(boosterInput, 18);
 
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'depositBoosterSavings',
-            value: valWei,
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain booster fallback', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'depositBoosterSavings',
+          value: valWei,
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      const currentB = vault.boosterBalances?.[activeUser.toLowerCase()] ? BigInt(vault.boosterBalances[activeUser.toLowerCase()]) : BigInt(0);
-      const updatedBoosters = {
-        ...(vault.boosterBalances || {}),
-        [activeUser.toLowerCase()]: (currentB + valWei).toString(),
-      };
-
-      const updatedVault: CoopVaultData = {
-        ...vault,
-        boosterBalances: updatedBoosters,
-        totalBoosterSavings: (vault.totalBoosterSavings || BigInt(0)) + valWei,
-      };
-
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
-      setActionSuccessMessage(`Booster Savings Added! $${val.toFixed(2)} USDC earning ~5.2% float yield.`);
+      setActionSuccessMessage(`Booster Savings Added! $${val.toFixed(2)} USDC earning yield on Arc Mainnet.`);
       setTimeout(() => setActionSuccessMessage(null), 5000);
     } catch (err: any) {
       console.error(err);
-      alert('Booster deposit error: ' + (err?.message || 'Transaction failed'));
+      alert('Booster deposit error: ' + (err?.shortMessage || err?.message || 'Transaction failed'));
     } finally {
       setIsBoosterDepositing(false);
     }
@@ -724,43 +581,33 @@ export default function VaultDashboardPage() {
   // 10. Withdraw Booster Savings Handler
   const handleWithdrawBooster = async () => {
     if (!vault || userBoosterSavings === BigInt(0)) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet to withdraw booster savings.');
+      return;
+    }
     setIsBoosterDepositing(true);
 
     try {
-      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
       const withdrawAmount = userBoosterSavings;
 
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'withdrawBoosterSavings',
-            args: [withdrawAmount],
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain booster withdraw fallback', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'withdrawBoosterSavings',
+          args: [withdrawAmount],
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      const updatedBoosters = { ...(vault.boosterBalances || {}) };
-      delete updatedBoosters[activeUser.toLowerCase()];
-
-      const updatedVault: CoopVaultData = {
-        ...vault,
-        boosterBalances: updatedBoosters,
-        totalBoosterSavings: vault.totalBoosterSavings && vault.totalBoosterSavings > withdrawAmount ? vault.totalBoosterSavings - withdrawAmount : BigInt(0),
-      };
-
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
       setActionSuccessMessage(`Booster Savings Withdrawn! $${formatUSDC(withdrawAmount)} USDC returned to wallet.`);
       setTimeout(() => setActionSuccessMessage(null), 5000);
     } catch (err: any) {
       console.error(err);
-      alert('Booster withdraw error: ' + (err?.message || 'Withdrawal failed'));
+      alert('Booster withdraw error: ' + (err?.shortMessage || err?.message || 'Withdrawal failed'));
     } finally {
       setIsBoosterDepositing(false);
     }
@@ -771,51 +618,31 @@ export default function VaultDashboardPage() {
     if (!vault) return;
     const addCount = parseInt(sharesInput) || 1;
     if (addCount <= 0) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet to purchase cooperative shares.');
+      return;
+    }
     setIsBuyingShares(true);
 
     try {
-      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
-
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'buyShares',
-            args: [BigInt(addCount)],
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain buy shares fallback', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'buyShares',
+          args: [BigInt(addCount)],
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      const currentS = vault.memberShares?.[activeUser.toLowerCase()] || 1;
-      const updatedShares = {
-        ...(vault.memberShares || {}),
-        [activeUser.toLowerCase()]: currentS + addCount,
-      };
-
-      const updatedMembers = [...vault.members];
-      for (let i = 0; i < addCount; i++) {
-        updatedMembers.push(activeUser);
-      }
-
-      const updatedVault: CoopVaultData = {
-        ...vault,
-        memberCount: vault.memberCount + BigInt(addCount),
-        members: updatedMembers,
-        memberShares: updatedShares,
-      };
-
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
-      setActionSuccessMessage(`Cooperative Shares Acquired! You now hold ${currentS + addCount} shares with multiple rotation payout slots.`);
+      setActionSuccessMessage(`Cooperative Shares Acquired! Additional ${addCount} queue slots granted on Arc Mainnet.`);
       setTimeout(() => setActionSuccessMessage(null), 5000);
     } catch (err: any) {
       console.error(err);
-      alert('Buy shares error: ' + (err?.message || 'Transaction failed'));
+      alert('Buy shares error: ' + (err?.shortMessage || err?.message || 'Transaction failed'));
     } finally {
       setIsBuyingShares(false);
     }
@@ -826,38 +653,33 @@ export default function VaultDashboardPage() {
     if (!vault) return;
     const divVal = parseFloat(dividendInput) || 0;
     if (divVal <= 0) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet to distribute dividends.');
+      return;
+    }
     setIsDistributingDividends(true);
 
     try {
       const divWei = parseUnits(dividendInput, 18);
 
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'distributePatronageDividends',
-            args: [divWei],
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain dividends fallback', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'distributePatronageDividends',
+          args: [divWei],
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      const updatedVault: CoopVaultData = {
-        ...vault,
-        reserveFund: vault.reserveFund > divWei ? vault.reserveFund - divWei : BigInt(0),
-      };
-
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
-      setActionSuccessMessage(`Patronage Dividends Distributed! $${divVal.toFixed(2)} USDC surplus disbursed to all active savers!`);
+      setActionSuccessMessage(`Patronage Dividends Distributed! $${divVal.toFixed(2)} USDC surplus disbursed to all savers on Arc!`);
       setTimeout(() => setActionSuccessMessage(null), 6000);
     } catch (err: any) {
       console.error(err);
-      alert('Dividend distribution error: ' + (err?.message || 'Distribution failed'));
+      alert('Dividend distribution error: ' + (err?.shortMessage || err?.message || 'Distribution failed'));
     } finally {
       setIsDistributingDividends(false);
     }
@@ -867,71 +689,36 @@ export default function VaultDashboardPage() {
   const handleSetupAutoSave = async () => {
     if (!vault) return;
     if (autoSaveCycles <= 0) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet to set up autopilot auto-saving.');
+      return;
+    }
     setIsSettingUpAutoSave(true);
 
     try {
-      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
       const totalAmount = vault.contributionAmount * BigInt(autoSaveCycles);
 
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'setupAutoSaveSubscription',
-            args: [BigInt(autoSaveCycles)],
-            value: totalAmount,
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain setupAutoSave fallback', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'setupAutoSaveSubscription',
+          args: [BigInt(autoSaveCycles)],
+          value: totalAmount,
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      // If current cycle wasn't deposited, 1 cycle is fulfilled immediately
-      const isAlreadyDeposited = hasUserDepositedForCycle;
-      const initialExecuted = isAlreadyDeposited ? 0 : 1;
-      const remainingStash = isAlreadyDeposited ? totalAmount : totalAmount - vault.contributionAmount;
-
-      const updatedMandates = {
-        ...(vault.autoSaveMandates || {}),
-        [activeUser.toLowerCase()]: {
-          isActive: true,
-          cycleDebitAmount: vault.contributionAmount,
-          maxCycles: autoSaveCycles,
-          cyclesExecuted: initialExecuted,
-          prefundedStash: remainingStash,
-        },
-      };
-
-      let newDeposits = vault.cycleDeposits;
-      let newBalance = vault.balance;
-      if (!isAlreadyDeposited) {
-        newDeposits += BigInt(1);
-        newBalance += vault.contributionAmount;
-        if (typeof window !== 'undefined') {
-          const depositKey = `deposited_${vault.address}_${vault.currentCycle}_${activeUser.toLowerCase()}`;
-          localStorage.setItem(depositKey, 'true');
-        }
-      }
-
-      const updatedVault: CoopVaultData = {
-        ...vault,
-        cycleDeposits: newDeposits,
-        balance: newBalance,
-        autoSaveMandates: updatedMandates,
-      };
-
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
       setActionSuccessMessage(
-        `⚡ Autopilot Activated! ${autoSaveCycles} cycles authorized ($${formatUSDC(totalAmount)} USDC). Future cycles will auto-debit on schedule!`
+        `⚡ Autopilot Activated! ${autoSaveCycles} cycles authorized on Arc Mainnet. Future cycles will auto-debit on schedule!`
       );
       setTimeout(() => setActionSuccessMessage(null), 6000);
     } catch (err: any) {
       console.error(err);
-      alert('Auto-save setup error: ' + (err?.message || 'Transaction failed'));
+      alert('Auto-save setup error: ' + (err?.shortMessage || err?.message || 'Transaction failed'));
     } finally {
       setIsSettingUpAutoSave(false);
     }
@@ -940,49 +727,32 @@ export default function VaultDashboardPage() {
   // 14. Cancel Auto-Save Recurring Subscription
   const handleCancelAutoSave = async () => {
     if (!vault || !userAutoSave || !userAutoSave.isActive) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet to cancel auto-save.');
+      return;
+    }
     setIsCancellingAutoSave(true);
 
     try {
-      const activeUser = (userAddress || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as `0x${string}`;
-      const refundStash = userAutoSave.prefundedStash;
-
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'cancelAutoSaveSubscription',
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain cancelAutoSave fallback', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'cancelAutoSaveSubscription',
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      const updatedMandates = {
-        ...(vault.autoSaveMandates || {}),
-        [activeUser.toLowerCase()]: {
-          ...userAutoSave,
-          isActive: false,
-          prefundedStash: BigInt(0),
-        },
-      };
-
-      const updatedVault: CoopVaultData = {
-        ...vault,
-        autoSaveMandates: updatedMandates,
-      };
-
-      saveVault(updatedVault);
-      setVault(updatedVault);
+      await loadVaultData();
       triggerConfetti();
       setActionSuccessMessage(
-        `Autopilot Cancelled. Unused buffer of $${formatUSDC(refundStash)} USDC has been refunded to your wallet.`
+        `Autopilot Cancelled on Arc Mainnet. Any remaining buffer has been refunded to your wallet.`
       );
       setTimeout(() => setActionSuccessMessage(null), 6000);
     } catch (err: any) {
       console.error(err);
-      alert('Auto-save cancellation error: ' + (err?.message || 'Cancellation failed'));
+      alert('Auto-save cancellation error: ' + (err?.shortMessage || err?.message || 'Cancellation failed'));
     } finally {
       setIsCancellingAutoSave(false);
     }
@@ -991,53 +761,33 @@ export default function VaultDashboardPage() {
   // 15. Trigger Auto-Debit on behalf of a subscribed member (Keeper role)
   const handleExecuteAutoDebit = async (targetMember: string) => {
     if (!vault) return;
+    if (!isConnected || !userAddress) {
+      alert('Please connect your Web3 wallet on Arc Mainnet to trigger auto-debit.');
+      return;
+    }
     setIsExecutingDebit(true);
 
     try {
-      if (isConnected && writeContractAsync) {
-        try {
-          await writeContractAsync({
-            address: vault.address,
-            abi: GSCOOP_VAULT_ABI,
-            functionName: 'executeAutoDebit',
-            args: [targetMember as `0x${string}`],
-            chainId: arcMainnet.id,
-          });
-        } catch (e) {
-          console.warn('On-chain executeAutoDebit fallback', e);
-        }
+      if (writeContractAsync) {
+        const hash = await writeContractAsync({
+          address: vault.address,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'executeAutoDebit',
+          args: [targetMember as `0x${string}`],
+          chainId: arcMainnet.id,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      const mandate = vault.autoSaveMandates?.[targetMember.toLowerCase()];
-      if (mandate && mandate.prefundedStash >= vault.contributionAmount) {
-        const remaining = mandate.prefundedStash - vault.contributionAmount;
-        const newExecuted = mandate.cyclesExecuted + 1;
-        const updatedMandates = {
-          ...(vault.autoSaveMandates || {}),
-          [targetMember.toLowerCase()]: {
-            ...mandate,
-            cyclesExecuted: newExecuted,
-            prefundedStash: remaining,
-            isActive: newExecuted < mandate.maxCycles && remaining >= vault.contributionAmount,
-          },
-        };
-
-        const updatedVault: CoopVaultData = {
-          ...vault,
-          balance: vault.balance + vault.contributionAmount,
-          cycleDeposits: vault.cycleDeposits + BigInt(1),
-          autoSaveMandates: updatedMandates,
-        };
-
-        saveVault(updatedVault);
-        setVault(updatedVault);
-        triggerConfetti();
-        setActionSuccessMessage(`Auto-debit executed for ${formatAddress(targetMember)}! Cycle quota fulfilled.`);
-        setTimeout(() => setActionSuccessMessage(null), 5000);
-      }
+      await loadVaultData();
+      triggerConfetti();
+      setActionSuccessMessage(
+        `Auto-Debit Executed on Arc Mainnet! $0.25 USDC keeper bounty earned.`
+      );
+      setTimeout(() => setActionSuccessMessage(null), 5000);
     } catch (err: any) {
       console.error(err);
-      alert('Execute auto-debit error: ' + (err?.message || 'Execution failed'));
+      alert('Execute auto-debit error: ' + (err?.shortMessage || err?.message || 'Execution failed'));
     } finally {
       setIsExecutingDebit(false);
     }
@@ -1217,12 +967,18 @@ export default function VaultDashboardPage() {
                     Cycle #{vault.currentCycle.toString()} Beneficiary Turn
                   </span>
                   <p className="text-sm font-bold text-white font-mono mt-0.5">
-                    {formatAddress(currentBeneficiary, 6)}{' '}
-                    {isUserBeneficiary && (
-                      <span className="ml-1 text-xs text-emerald-400 font-sans font-semibold">(You!)</span>
-                    )}
-                    {vault.currentHighestBid && (
-                      <span className="ml-1 text-xs text-amber-300 font-sans font-semibold">(Auction Winner)</span>
+                    {vault.members.length === 0 ? (
+                      <span className="text-zinc-400 font-sans text-xs">Waiting for first member to enroll</span>
+                    ) : (
+                      <>
+                        {formatAddress(currentBeneficiary, 6)}{' '}
+                        {isUserBeneficiary && (
+                          <span className="ml-1 text-xs text-emerald-400 font-sans font-semibold">(You!)</span>
+                        )}
+                        {vault.currentHighestBid && (
+                          <span className="ml-1 text-xs text-amber-300 font-sans font-semibold">(Auction Winner)</span>
+                        )}
+                      </>
                     )}
                   </p>
                 </div>
@@ -1231,7 +987,7 @@ export default function VaultDashboardPage() {
               <div className="text-right">
                 <span className="text-[11px] text-zinc-400">Scheduled Payout Pot</span>
                 <p className="text-sm font-bold text-emerald-400 font-mono">
-                  ${formatUSDC(vault.contributionAmount * vault.memberCount)} USDC
+                  ${formatUSDC(vault.contributionAmount * (vault.memberCount > BigInt(0) ? vault.memberCount : vault.maxMembers))} USDC
                 </p>
               </div>
             </div>
@@ -2168,82 +1924,92 @@ export default function VaultDashboardPage() {
 
             {/* Queue List */}
             <div className="space-y-2.5 pt-2">
-              {vault.members.map((member, index) => {
-                const isCurrentTurn = index === Number(vault.currentCycle) % vault.members.length;
-                const isUser = userAddress && member.toLowerCase() === userAddress.toLowerCase();
-                const pastTurn = index < Number(vault.currentCycle) % vault.members.length;
-                const memberDebt = vault.activeDebts?.[member.toLowerCase()]
-                  ? BigInt(vault.activeDebts[member.toLowerCase()])
-                  : BigInt(0);
+              {vault.members.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/[0.1] bg-[#0c0c0f] p-6 text-center space-y-2">
+                  <Users className="h-8 w-8 text-zinc-600 mx-auto" />
+                  <p className="text-xs font-semibold text-white">No members enrolled yet</p>
+                  <p className="text-[11px] text-zinc-400 max-w-xs mx-auto">
+                    Be the first member to join this cooperative queue and take Turn #1 in the payout rotation!
+                  </p>
+                </div>
+              ) : (
+                vault.members.map((member, index) => {
+                  const isCurrentTurn = index === Number(vault.currentCycle) % vault.members.length;
+                  const isUser = userAddress && member.toLowerCase() === userAddress.toLowerCase();
+                  const pastTurn = index < Number(vault.currentCycle) % vault.members.length;
+                  const memberDebt = vault.activeDebts?.[member.toLowerCase()]
+                    ? BigInt(vault.activeDebts[member.toLowerCase()])
+                    : BigInt(0);
 
-                return (
-                  <div
-                    key={member + index}
-                    className={`flex items-center justify-between rounded-2xl p-3.5 border transition-all ${
-                      isCurrentTurn
-                        ? 'border-emerald-400/50 bg-gradient-to-r from-emerald-950/40 to-teal-950/20 shadow-lg shadow-emerald-500/5'
-                        : 'border-white/[0.06] bg-[#0c0c0f]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-mono font-bold ${
-                          isCurrentTurn
-                            ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
-                            : 'bg-white/[0.06] text-zinc-400'
-                        }`}
-                      >
-                        #{index + 1}
+                  return (
+                    <div
+                      key={member + index}
+                      className={`flex items-center justify-between rounded-2xl p-3.5 border transition-all ${
+                        isCurrentTurn
+                          ? 'border-emerald-400/50 bg-gradient-to-r from-emerald-950/40 to-teal-950/20 shadow-lg shadow-emerald-500/5'
+                          : 'border-white/[0.06] bg-[#0c0c0f]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-mono font-bold ${
+                            isCurrentTurn
+                              ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                              : 'bg-white/[0.06] text-zinc-400'
+                          }`}
+                        >
+                          #{index + 1}
+                        </div>
+
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-xs font-semibold text-white">
+                              {formatAddress(member, 5)}
+                            </span>
+                            {isUser && (
+                              <span className="rounded bg-white/[0.1] px-1.5 py-0.2 text-[10px] text-zinc-200">
+                                You
+                              </span>
+                            )}
+                            {isCurrentTurn && (
+                              <Crown className="h-3.5 w-3.5 text-emerald-400 animate-bounce" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-zinc-400">
+                              {isCurrentTurn
+                                ? 'Active Beneficiary'
+                                : pastTurn
+                                ? 'Claimed in earlier cycle'
+                                : `Scheduled for Turn #${index + 1}`}
+                            </span>
+                            {memberDebt > BigInt(0) && (
+                              <span className="text-[10px] font-mono text-amber-400 font-semibold">
+                                (Debt: ${formatUSDC(memberDebt)})
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
                       <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-xs font-semibold text-white">
-                            {formatAddress(member, 5)}
+                        {isCurrentTurn ? (
+                          <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                            Current Turn
                           </span>
-                          {isUser && (
-                            <span className="rounded bg-white/[0.1] px-1.5 py-0.2 text-[10px] text-zinc-200">
-                              You
-                            </span>
-                          )}
-                          {isCurrentTurn && (
-                            <Crown className="h-3.5 w-3.5 text-emerald-400 animate-bounce" />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] text-zinc-400">
-                            {isCurrentTurn
-                              ? 'Active Beneficiary'
-                              : pastTurn
-                              ? 'Claimed in earlier cycle'
-                              : `Scheduled for Turn #${index + 1}`}
+                        ) : pastTurn ? (
+                          <span className="flex items-center gap-1 text-[11px] text-zinc-400">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500/70" />
+                            <span>Paid</span>
                           </span>
-                          {memberDebt > BigInt(0) && (
-                            <span className="text-[10px] font-mono text-amber-400 font-semibold">
-                              (Debt: ${formatUSDC(memberDebt)})
-                            </span>
-                          )}
-                        </div>
+                        ) : (
+                          <span className="text-[11px] font-mono text-zinc-400">Scheduled</span>
+                        )}
                       </div>
                     </div>
-
-                    <div>
-                      {isCurrentTurn ? (
-                        <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                          Current Turn
-                        </span>
-                      ) : pastTurn ? (
-                        <span className="flex items-center gap-1 text-[11px] text-zinc-400">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500/70" />
-                          <span>Paid</span>
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-mono text-zinc-400">Scheduled</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 

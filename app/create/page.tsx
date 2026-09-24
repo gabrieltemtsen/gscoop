@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseUnits } from 'viem';
+import { parseUnits, parseEventLogs } from 'viem';
 import { FACTORY_ADDRESS, GSCOOP_FACTORY_ABI } from '@/lib/contracts';
 import { arcMainnet } from '@/lib/arcChain';
+import { publicClient } from '@/lib/publicClient';
+import { fetchOnChainVault } from '@/lib/onChainVaults';
 import { saveVault, CoopVaultData } from '@/lib/vaultStore';
 import { triggerConfetti } from '@/components/ConfettiCelebration';
 import { 
@@ -64,62 +66,92 @@ export default function CreateVaultPage() {
     e.preventDefault();
     if (!name.trim() || numContribution <= 0) return;
 
+    if (!isConnected || !address) {
+      alert('Please connect your Web3 wallet on Arc Mainnet (Chain ID: 5042) to deploy this cooperative.');
+      return;
+    }
+
     setIsDeploying(true);
 
     try {
       const contributionWei = parseUnits(contribution, 18);
-      let txHash = '';
-      let vaultAddress: `0x${string}` = `0x13b2${Math.random().toString(16).slice(2, 10)}${Date.now().toString(16).slice(-6)}000000000000000000` as `0x${string}`;
+      let vaultAddress: `0x${string}` | null = null;
 
-      // If connected on Arc Mainnet, attempt on-chain deployment
-      if (isConnected && writeContractAsync) {
-        try {
-          const hash = await writeContractAsync({
-            address: FACTORY_ADDRESS,
-            abi: GSCOOP_FACTORY_ABI,
-            functionName: 'createCoop',
-            args: [name, contributionWei, BigInt(cycleDuration), BigInt(maxMembers)],
-            chainId: arcMainnet.id,
-          });
-          txHash = hash;
-        } catch (contractErr) {
-          console.warn('On-chain deploy error, creating local simulated vault on Arc', contractErr);
+      if (!writeContractAsync) {
+        throw new Error('Wallet client writeContractAsync is not available.');
+      }
+
+      // Execute on-chain deployment via GScoopFactory on Arc Mainnet
+      const hash = await writeContractAsync({
+        address: FACTORY_ADDRESS,
+        abi: GSCOOP_FACTORY_ABI,
+        functionName: 'createCoop',
+        args: [name.trim(), contributionWei, BigInt(cycleDuration), BigInt(maxMembers)],
+        chainId: arcMainnet.id,
+      });
+
+      // Await confirmation on Arc Mainnet with publicClient
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      
+      // Parse event log
+      const logs = parseEventLogs({
+        abi: GSCOOP_FACTORY_ABI,
+        eventName: 'CoopCreated',
+        logs: receipt.logs,
+      });
+
+      if (logs && logs.length > 0 && (logs[0] as any).args?.vaultAddress) {
+        vaultAddress = (logs[0] as any).args.vaultAddress as `0x${string}`;
+      } else {
+        // Fallback: read all coops from factory and take the newest one
+        const coops = (await publicClient.readContract({
+          address: FACTORY_ADDRESS,
+          abi: GSCOOP_FACTORY_ABI,
+          functionName: 'getCoops',
+        })) as readonly `0x${string}`[];
+        if (coops && coops.length > 0) {
+          vaultAddress = coops[coops.length - 1];
         }
       }
 
-      // Generate verified vault metadata
-      const creatorAddress = (address || '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045') as `0x${string}`;
-      const newVault: CoopVaultData = {
-        address: vaultAddress,
-        name: name.trim(),
-        description: description.trim() || 'Custom community cooperative savings pool on Arc Mainnet.',
-        contributionAmount: contributionWei,
-        cycleDuration: BigInt(cycleDuration),
-        cycleDeadline: BigInt(Math.floor(Date.now() / 1000) + cycleDuration),
-        currentCycle: BigInt(0),
-        balance: BigInt(0),
-        memberCount: BigInt(1), // Creator starts as first member in queue
-        maxMembers: BigInt(maxMembers),
-        cycleDeposits: BigInt(0),
-        beneficiary: creatorAddress,
-        creator: creatorAddress,
-        members: [creatorAddress],
-        createdAt: Date.now(),
-        yieldEnabled: enableYield,
-        yieldApy: enableYield ? 5.2 : undefined,
-        accruedYield: BigInt(0),
-        reserveFund: parseUnits('50', 18),
-        currentHighestBid: null,
-        activeDebts: {},
-      };
+      if (!vaultAddress) {
+        throw new Error('Contract deployed but could not determine new vault address on Arc Mainnet.');
+      }
 
-      // Save to local registry store
-      saveVault(newVault);
-      setDeployedVault(newVault);
+      // Fetch on-chain state or construct initial verified record
+      let liveVault = await fetchOnChainVault(vaultAddress);
+      if (!liveVault) {
+        liveVault = {
+          address: vaultAddress,
+          name: name.trim(),
+          description: description.trim() || 'Custom community cooperative savings pool on Arc Mainnet.',
+          contributionAmount: contributionWei,
+          cycleDuration: BigInt(cycleDuration),
+          cycleDeadline: BigInt(Math.floor(Date.now() / 1000) + cycleDuration),
+          currentCycle: BigInt(0),
+          balance: BigInt(0),
+          memberCount: BigInt(1),
+          maxMembers: BigInt(maxMembers),
+          cycleDeposits: BigInt(0),
+          beneficiary: address,
+          creator: address,
+          members: [address],
+          createdAt: Date.now(),
+          yieldEnabled: enableYield,
+          yieldApy: enableYield ? 5.2 : undefined,
+          accruedYield: BigInt(0),
+          reserveFund: BigInt(0),
+          currentHighestBid: null,
+          activeDebts: {},
+        };
+      }
+
+      saveVault(liveVault);
+      setDeployedVault(liveVault);
       triggerConfetti();
     } catch (err: any) {
       console.error('Deployment failure:', err);
-      alert(`Error deploying vault: ${err?.message || 'Transaction rejected'}`);
+      alert(`Deployment failed: ${err?.shortMessage || err?.message || 'Transaction rejected'}`);
     } finally {
       setIsDeploying(false);
     }
