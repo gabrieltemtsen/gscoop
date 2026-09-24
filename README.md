@@ -44,6 +44,9 @@ GScoop is built natively for Arc Mainnet, taking advantage of predictable sub-ce
 | **Block Explorer** | `https://explorer.arc.io` |
 | **Native Gas Token** | USDC (`18` decimals at protocol layer) |
 | **Average Gas Cost** | `~$0.005 USDC` per transaction |
+| **Deployed GScoopFactory** | [`0x18Ea8d1D41A3307D159D2d3C1fCfBCF139354A8F`](https://explorer.arc.io/address/0x18Ea8d1D41A3307D159D2d3C1fCfBCF139354A8F) |
+| **Showcase Cooperative Vault** | [`0x52D4c482276c3932fb2081528a6b155e2B1Ca977`](https://explorer.arc.io/address/0x52D4c482276c3932fb2081528a6b155e2B1Ca977) |
+| **Deployment Block** | `22484630` |
 
 ---
 
