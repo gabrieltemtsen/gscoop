@@ -4,7 +4,7 @@ import { CoopVaultData, AutoSaveMandateData } from './vaultStore';
 import { parseUnits } from 'viem';
 
 // Fallback showcase vault deployed on Arc Mainnet
-export const SHOWCASE_VAULT_ADDRESS = '0x52D4c482276c3932fb2081528a6b155e2B1Ca977' as `0x${string}`;
+export const SHOWCASE_VAULT_ADDRESS = '0x7bA5860a36A89ed9eB753afc1d99482BE548AdD3' as `0x${string}`;
 
 /**
  * Fetch all registered cooperative pool addresses directly from GScoopFactory on Arc Mainnet.

@@ -48,7 +48,7 @@ export interface CoopVaultData {
 
 const DEFAULT_VAULTS: CoopVaultData[] = [
   {
-    address: '0x52D4c482276c3932fb2081528a6b155e2B1Ca977',
+    address: '0x7bA5860a36A89ed9eB753afc1d99482BE548AdD3',
     name: 'Arc Global Synergy Alpha',
     description: 'Official showcase cooperative vault deployed natively on Arc Mainnet with automated rotating payouts, turn loans, and float yield.',
     contributionAmount: parseUnits('50', 18),

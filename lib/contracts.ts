@@ -1,5 +1,5 @@
 // Auto-generated ABI and contract constants for GScoop with Yield, Credit, Flexibility & Dividends
-export const FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_FACTORY_ADDRESS || "0x18Ea8d1D41A3307D159D2d3C1fCfBCF139354A8F") as `0x${string}`;
+export const FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_FACTORY_ADDRESS || "0xdA569a58DfF4c16251A30C8b496D7fB55e5fDDC8") as `0x${string}`;
 
 export const GSCOOP_FACTORY_ABI = [
   {
