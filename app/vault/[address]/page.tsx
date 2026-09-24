@@ -76,12 +76,13 @@ export default function VaultDashboardPage() {
   const [activeFinanceTab, setActiveFinanceTab] = useState<
     'borrow' | 'auction' | 'yield' | 'autosave' | 'advance' | 'booster' | 'shares' | 'dividends'
   >('borrow');
-  const [borrowInput, setBorrowInput] = useState('50');
-  const [bidInput, setBidInput] = useState('10');
-  const [advanceInput, setAdvanceInput] = useState('100');
-  const [boosterInput, setBoosterInput] = useState('100');
+  const [borrowInput, setBorrowInput] = useState('1.5');
+  const [bidInput, setBidInput] = useState('0.2');
+  const [advanceInput, setAdvanceInput] = useState('1');
+  const [boosterInput, setBoosterInput] = useState('1');
   const [sharesInput, setSharesInput] = useState('1');
-  const [dividendInput, setDividendInput] = useState('30');
+  const [dividendInput, setDividendInput] = useState('1');
+  const [hasInitializedInputs, setHasInitializedInputs] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [isBoosterDepositing, setIsBoosterDepositing] = useState(false);
   const [isBuyingShares, setIsBuyingShares] = useState(false);
@@ -100,6 +101,23 @@ export default function VaultDashboardPage() {
     autoSave: AutoSaveMandateData | null;
   } | null>(null);
 
+  const syncInputsWithVault = (v: CoopVaultData) => {
+    if (hasInitializedInputs) return;
+    const contribVal = Number(formatUnits(v.contributionAmount, 18));
+    const memberCnt = Math.max(1, Number(v.memberCount));
+    const fullPotVal = contribVal * memberCnt;
+    const maxBorrowVal = Number((fullPotVal * 0.75).toFixed(4));
+    const defaultBidVal = Number((fullPotVal * 0.1).toFixed(4));
+    const reserveVal = Number(formatUnits(v.reserveFund, 18));
+
+    setBorrowInput(maxBorrowVal > 0 ? maxBorrowVal.toString() : '1');
+    setBidInput(defaultBidVal > 0 ? defaultBidVal.toString() : '0.1');
+    setAdvanceInput(contribVal > 0 ? contribVal.toString() : '1');
+    setBoosterInput(contribVal > 0 ? contribVal.toString() : '1');
+    setDividendInput(reserveVal > 0 ? reserveVal.toString() : contribVal > 0 ? contribVal.toString() : '1');
+    setHasInitializedInputs(true);
+  };
+
   // Load vault data directly on-chain from Arc Mainnet
   const loadVaultData = async () => {
     setIsLoadingOnChain(true);
@@ -107,6 +125,7 @@ export default function VaultDashboardPage() {
       const liveVault = await fetchOnChainVault(rawAddress as `0x${string}`);
       if (liveVault) {
         setVault(liveVault);
+        syncInputsWithVault(liveVault);
         if (userAddress) {
           const userStatus = await fetchUserOnChainStatus(rawAddress as `0x${string}`, userAddress, liveVault.currentCycle);
           setOnChainUserStatus(userStatus);
@@ -115,12 +134,16 @@ export default function VaultDashboardPage() {
         const stored = getVaultByAddress(vaultAddress);
         if (stored) {
           setVault(stored);
+          syncInputsWithVault(stored);
         }
       }
     } catch (err) {
       console.warn('Error loading on-chain vault:', err);
       const stored = getVaultByAddress(vaultAddress);
-      if (stored) setVault(stored);
+      if (stored) {
+        setVault(stored);
+        syncInputsWithVault(stored);
+      }
     } finally {
       setIsLoadingOnChain(false);
     }
@@ -245,6 +268,22 @@ export default function VaultDashboardPage() {
     if (!vault) return BigInt(0);
     const fullPot = vault.contributionAmount * vault.memberCount;
     return (fullPot * BigInt(75)) / BigInt(100);
+  }, [vault]);
+
+  // Available surplus liquidity in the vault for turn-collateralized loans
+  const availableLendingLiquidity = useMemo(() => {
+    if (!vault) return BigInt(0);
+    const cycleRequiredPot = vault.cycleDeposits * vault.contributionAmount;
+    const surplus = vault.balance > cycleRequiredPot ? vault.balance - cycleRequiredPot : BigInt(0);
+    const maxByPool = surplus + vault.reserveFund;
+    return maxByPool < vault.balance ? maxByPool : vault.balance;
+  }, [vault]);
+
+  // Maximum allowable auction discount (20% of full cycle pot)
+  const maxAuctionDiscount = useMemo(() => {
+    if (!vault) return BigInt(0);
+    const fullPot = vault.contributionAmount * vault.memberCount;
+    return (fullPot * BigInt(20)) / BigInt(100);
   }, [vault]);
 
   // Payout ready condition
@@ -1341,39 +1380,39 @@ export default function VaultDashboardPage() {
           )}
 
           {/* ADVANCED CAPITAL EFFICIENCY & LIQUIDITY HUB (Borrowing, Auction, Yield) */}
-          <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-6 shadow-xl space-y-5">
-            <div className="flex flex-col gap-3 border-b border-white/[0.06] pb-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-5 sm:p-6 shadow-xl space-y-5">
+            <div className="flex flex-col gap-3.5 border-b border-white/[0.06] pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
                 <div>
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <BadgeDollarSign className="h-5 w-5 text-emerald-400" />
+                    <BadgeDollarSign className="h-5 w-5 text-emerald-400 shrink-0" />
                     <span>Cooperative Growth & Flexibility Hub</span>
                   </h3>
                   <p className="text-xs text-zinc-400 mt-0.5">
                     Flexible timing pre-pay, voluntary booster savings, multi-share expansion, loans, auctions, and annual dividends.
                   </p>
                 </div>
-                <span className="text-[11px] font-mono text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-lg border border-cyan-500/20 self-start sm:self-auto">
+                <span className="text-[11px] font-mono text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-lg border border-cyan-500/20 whitespace-nowrap shrink-0 self-start">
                   Season {currentSeason} • Cycle {cycleInSeason} of {vault.memberCount.toString()}
                 </span>
               </div>
 
-              {/* Scrollable Tabs Bar */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+              {/* 4x2 Responsive Tabs Grid (No Horizontal Scrollbar or Cut-off Text) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
                 {[
                   { id: 'autosave', label: '⚡ Autopilot' },
                   { id: 'advance', label: '⏱️ Pre-Pay Buffer' },
-                  { id: 'booster', label: '💰 Save More (Booster)' },
+                  { id: 'booster', label: '💰 Save More' },
                   { id: 'shares', label: '🎟️ Buy Shares' },
                   { id: 'borrow', label: '💳 Turn Loan' },
                   { id: 'auction', label: '🏷️ Turn Auction' },
                   { id: 'yield', label: '📈 Float Yield' },
-                  { id: 'dividends', label: '🎁 Annual Dividends' },
+                  { id: 'dividends', label: '🎁 Dividends' },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveFinanceTab(tab.id as any)}
-                    className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer ${
                       activeFinanceTab === tab.id
                         ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300 shadow-sm'
                         : 'border-white/[0.06] bg-black/40 text-zinc-400 hover:text-white hover:border-white/20'
@@ -1487,18 +1526,18 @@ export default function VaultDashboardPage() {
                         <label className="text-xs font-medium text-zinc-300">
                           Select Subscription Duration:
                         </label>
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {[
                             { count: 3, label: '3 Cycles' },
                             { count: 5, label: '5 Cycles' },
                             { count: 10, label: '10 Cycles' },
                             {
-                              count: Number(vault.memberCount) > 0 ? Number(vault.memberCount) : 8,
-                              label: `Season (${vault.memberCount.toString()}x)`,
+                              count: Number(vault.memberCount) > 1 ? Number(vault.memberCount) : 4,
+                              label: `Season (${Number(vault.memberCount) > 1 ? vault.memberCount.toString() : 4}x)`,
                             },
                           ].map((item) => (
                             <button
-                              key={item.count}
+                              key={item.label}
                               type="button"
                               onClick={() => setAutoSaveCycles(item.count)}
                               className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
@@ -1528,7 +1567,7 @@ export default function VaultDashboardPage() {
                         <div className="flex justify-between text-xs">
                           <span className="text-zinc-400">Initial Cycle Execution:</span>
                           <span className="text-zinc-300 font-mono">
-                            {hasUserDepositedForCycle ? 'Cycle already paid (Autopilot starts next cycle)' : 'Cycle #auto-fulfilled immediately'}
+                            {hasUserDepositedForCycle ? 'Cycle already paid (Autopilot starts next cycle)' : 'Cycle auto-fulfilled immediately'}
                           </span>
                         </div>
                         <div className="flex justify-between text-xs pt-1 border-t border-white/[0.04]">
@@ -1624,7 +1663,7 @@ export default function VaultDashboardPage() {
             {/* TAB 1: TURN-COLLATERALIZED BORROWING */}
             {activeFinanceTab === 'borrow' && (
               <div className="space-y-4">
-                <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.06] p-4 space-y-3">
+                <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.06] p-4 space-y-3.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white flex items-center gap-1.5">
                       <HandCoins className="h-4 w-4 text-cyan-400" />
@@ -1638,6 +1677,22 @@ export default function VaultDashboardPage() {
                   <p className="text-xs text-zinc-400 leading-relaxed">
                     Borrow up to <strong className="text-cyan-400 font-mono">75%</strong> (${formatUSDC(maxBorrowAllowed)} USDC) of your upcoming payout. The smart contract locks your turn and <strong>automatically garnishes principal + 2% fee</strong> when your payout arrives.
                   </p>
+
+                  {/* Credit Limit vs Pool Lending Liquidity Summary */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-xl bg-black/40 border border-white/[0.04] p-3">
+                      <span className="text-[10px] text-zinc-400 uppercase">Your 75% Turn Limit</span>
+                      <p className="text-sm sm:text-base font-bold text-cyan-400 font-mono mt-0.5">
+                        ${formatUSDC(maxBorrowAllowed)} USDC
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-black/40 border border-white/[0.04] p-3">
+                      <span className="text-[10px] text-zinc-400 uppercase">Pool Lending Liquidity</span>
+                      <p className="text-sm sm:text-base font-bold text-emerald-400 font-mono mt-0.5">
+                        ${formatUSDC(availableLendingLiquidity)} USDC
+                      </p>
+                    </div>
+                  </div>
 
                   {/* Active Debt Card if exists */}
                   {userActiveDebt > BigInt(0) ? (
@@ -1664,14 +1719,30 @@ export default function VaultDashboardPage() {
                     <div className="space-y-3 pt-1">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-zinc-400">Borrow Amount:</span>
-                        <span className="font-mono text-cyan-300">Max: ${formatUSDC(maxBorrowAllowed)} USDC</span>
+                        <div className="flex items-center gap-1.5">
+                          {[0.25, 0.5, 0.75].map((pct) => {
+                            const fullPotNum = Number(formatUnits(vault.contributionAmount * vault.memberCount, 18));
+                            const val = Number((fullPotNum * pct).toFixed(2));
+                            return (
+                              <button
+                                key={pct}
+                                type="button"
+                                onClick={() => setBorrowInput(val.toString())}
+                                className="rounded bg-cyan-500/10 border border-cyan-500/25 px-2 py-0.5 text-[10px] font-mono text-cyan-300 hover:bg-cyan-500/20 cursor-pointer"
+                              >
+                                {pct === 0.75 ? `Max ($${val})` : `${pct * 100}% ($${val})`}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
                       <div className="relative">
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
                         <input
                           type="number"
-                          min="1"
+                          min="0.01"
+                          step="any"
                           max={Number(formatUnits(maxBorrowAllowed, 18))}
                           value={borrowInput}
                           onChange={(e) => setBorrowInput(e.target.value)}
@@ -1682,6 +1753,36 @@ export default function VaultDashboardPage() {
                         </span>
                       </div>
 
+                      {(parseFloat(borrowInput) || 0) > Number(formatUnits(maxBorrowAllowed, 18)) && (
+                        <p className="text-[11px] text-amber-400 font-medium px-1">
+                          Amount exceeds your 75% turn credit limit (${formatUSDC(maxBorrowAllowed)} USDC).
+                        </p>
+                      )}
+
+                      {availableLendingLiquidity === BigInt(0) && (
+                        <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 space-y-2 text-[11px] text-zinc-300">
+                          <p className="leading-relaxed">
+                            <strong className="text-amber-300">Pool Lending Liquidity is currently $0.00 USDC:</strong> Active cycle contributions stay locked for this cycle&apos;s beneficiary payout. Turn loans are funded from surplus pool capital (<em>Save More Booster</em>, <em>Pre-Pay Buffer</em>, or <em>Reserve Fund</em>).
+                          </p>
+                          <div className="flex flex-wrap gap-2 pt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setActiveFinanceTab('booster')}
+                              className="rounded-lg bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/30 cursor-pointer"
+                            >
+                              💰 Add Booster Liquidity
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveFinanceTab('auction')}
+                              className="rounded-lg bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/30 cursor-pointer"
+                            >
+                              🏷️ Bid in Turn Auction Instead
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1">
                         <span>Fixed 2% Loan Fee:</span>
                         <span className="font-mono text-zinc-300">
@@ -1691,7 +1792,13 @@ export default function VaultDashboardPage() {
 
                       <button
                         onClick={handleBorrow}
-                        disabled={isBorrowing || !isUserMember || (parseFloat(borrowInput) || 0) <= 0}
+                        disabled={
+                          isBorrowing ||
+                          !isUserMember ||
+                          (parseFloat(borrowInput) || 0) <= 0 ||
+                          (parseFloat(borrowInput) || 0) > Number(formatUnits(maxBorrowAllowed, 18)) ||
+                          (parseFloat(borrowInput) || 0) > Number(formatUnits(availableLendingLiquidity, 18))
+                        }
                         className="w-full flex items-center justify-center gap-2 rounded-xl bg-cyan-500 py-3 text-xs font-bold text-black hover:bg-cyan-400 disabled:opacity-40 transition-all cursor-pointer shadow-lg shadow-cyan-500/10"
                       >
                         {isBorrowing ? (
@@ -1722,7 +1829,7 @@ export default function VaultDashboardPage() {
                   </div>
 
                   <p className="text-xs text-zinc-400 leading-relaxed">
-                    Need emergency capital immediately without debt? Bid a discount off this cycle's pot. 
+                    Need emergency capital immediately without debt? Bid a discount (up to <strong className="text-amber-300 font-mono">20%</strong> / ${formatUSDC(maxAuctionDiscount)} USDC) off this cycle&apos;s pot. 
                     The winning bidder takes the pot now, and the discount is <strong className="text-emerald-400">instantly distributed as cash dividends</strong> to the other savers!
                   </p>
 
@@ -1745,12 +1852,32 @@ export default function VaultDashboardPage() {
                   )}
 
                   <div className="space-y-2 pt-1">
-                    <label className="text-xs text-zinc-400">Your Discount Offer (USDC):</label>
+                    <div className="flex items-center justify-between text-xs">
+                      <label className="text-zinc-400">Your Discount Offer (USDC):</label>
+                      <div className="flex items-center gap-1.5">
+                        {[0.05, 0.1, 0.2].map((pct) => {
+                          const fullPotNum = Number(formatUnits(vault.contributionAmount * vault.memberCount, 18));
+                          const val = Number((fullPotNum * pct).toFixed(2));
+                          return (
+                            <button
+                              key={pct}
+                              type="button"
+                              onClick={() => setBidInput(val.toString())}
+                              className="rounded bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 text-[10px] font-mono text-amber-300 hover:bg-amber-500/20 cursor-pointer"
+                            >
+                              {pct === 0.2 ? `Max 20% ($${val})` : `${pct * 100}% ($${val})`}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                     <div className="relative">
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
                       <input
                         type="number"
-                        min="1"
+                        min="0.01"
+                        step="any"
+                        max={Number(formatUnits(maxAuctionDiscount, 18))}
                         value={bidInput}
                         onChange={(e) => setBidInput(e.target.value)}
                         className="w-full rounded-xl border border-white/[0.1] bg-black/50 pl-8 pr-16 py-2.5 text-xs sm:text-sm font-mono text-white focus:border-amber-400 focus:outline-none"
@@ -1760,9 +1887,20 @@ export default function VaultDashboardPage() {
                       </span>
                     </div>
 
+                    {(parseFloat(bidInput) || 0) > Number(formatUnits(maxAuctionDiscount, 18)) && (
+                      <p className="text-[11px] text-amber-400 font-medium px-1">
+                        Discount exceeds 20% cap (${formatUSDC(maxAuctionDiscount)} USDC max).
+                      </p>
+                    )}
+
                     <button
                       onClick={handleSubmitBid}
-                      disabled={isBidding || !isUserMember}
+                      disabled={
+                        isBidding ||
+                        !isUserMember ||
+                        (parseFloat(bidInput) || 0) <= 0 ||
+                        (parseFloat(bidInput) || 0) > Number(formatUnits(maxAuctionDiscount, 18))
+                      }
                       className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-400 py-3 text-xs font-bold text-black hover:bg-amber-300 disabled:opacity-40 transition-all cursor-pointer shadow-lg shadow-amber-400/10"
                     >
                       {isBidding ? (
@@ -1877,7 +2015,8 @@ export default function VaultDashboardPage() {
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-xs">$</span>
                       <input
                         type="number"
-                        min="1"
+                        min="0.01"
+                        step="any"
                         value={advanceInput}
                         onChange={(e) => setAdvanceInput(e.target.value)}
                         className="w-full rounded-xl border border-white/[0.1] bg-[#141418] pl-7 pr-16 py-2.5 text-xs font-mono text-white focus:border-teal-500 focus:outline-none"
@@ -1940,7 +2079,8 @@ export default function VaultDashboardPage() {
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-xs">$</span>
                       <input
                         type="number"
-                        min="1"
+                        min="0.01"
+                        step="any"
                         value={boosterInput}
                         onChange={(e) => setBoosterInput(e.target.value)}
                         className="w-full rounded-xl border border-white/[0.1] bg-[#141418] pl-7 pr-16 py-2.5 text-xs font-mono text-white focus:border-emerald-500 focus:outline-none"
@@ -2087,7 +2227,8 @@ export default function VaultDashboardPage() {
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-xs">$</span>
                       <input
                         type="number"
-                        min="1"
+                        min="0.01"
+                        step="any"
                         value={dividendInput}
                         onChange={(e) => setDividendInput(e.target.value)}
                         className="w-full rounded-xl border border-white/[0.1] bg-[#141418] pl-7 pr-16 py-2.5 text-xs font-mono text-white focus:border-amber-500 focus:outline-none"
