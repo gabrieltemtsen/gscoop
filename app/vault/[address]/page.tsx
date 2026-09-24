@@ -322,17 +322,21 @@ export default function VaultDashboardPage() {
         await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      if (typeof window !== 'undefined') {
-        const depositKey = `deposited_${vault.address}_${vault.currentCycle}_${userAddress.toLowerCase()}`;
-        localStorage.setItem(depositKey, 'true');
-      }
+      const prevCycle = vault.currentCycle;
+      const isSoloPool = vault.memberCount <= BigInt(1);
 
       await loadVaultData();
       triggerConfetti();
-      setActionSuccessMessage(
-        `Deposit confirmed on Arc Mainnet! $${formatUSDC(vault.contributionAmount)} USDC deposited.`
-      );
-      setTimeout(() => setActionSuccessMessage(null), 5000);
+      if (isSoloPool) {
+        setActionSuccessMessage(
+          `🎉 Deposit confirmed! Because you are currently the only member enrolled in this circle (1/1), Cycle #${prevCycle} was instantly settled and $${formatUSDC(vault.contributionAmount)} USDC was disbursed directly back to your wallet! Invite another member to start multi-party rotation.`
+        );
+      } else {
+        setActionSuccessMessage(
+          `Deposit confirmed on Arc Mainnet! $${formatUSDC(vault.contributionAmount)} USDC added to the Cycle Pot.`
+        );
+      }
+      setTimeout(() => setActionSuccessMessage(null), 8000);
     } catch (err: any) {
       console.error(err);
       alert('Deposit error: ' + (err?.shortMessage || err?.message || 'Transaction failed'));
@@ -978,6 +982,41 @@ export default function VaultDashboardPage() {
         </div>
       )}
 
+      {/* Solo Member Advisory Banner */}
+      {vault.memberCount <= BigInt(1) && (
+        <div className="rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="rounded-2xl bg-amber-500/20 border border-amber-500/30 p-2.5 text-amber-400 shrink-0">
+              <Users className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">
+                  Solo Member Circle (1 of {vault.maxMembers > 0 ? vault.maxMembers.toString() : '∞'} Members)
+                </span>
+                <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                  Waiting for Savers
+                </span>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed max-w-2xl">
+                In collaborative rotating savings circles, deposits accumulate across participants and rotate turns. Because you are currently the only saver enrolled (1/1), depositing immediately satisfies 100% of the circle and automatically disburses the pot directly back to your wallet.
+              </p>
+              <p className="text-[11px] text-amber-300/80 font-medium">
+                👉 Share your vault invite link or connect a second wallet to enroll another member and start full group rotation!
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-bold text-black hover:bg-amber-400 transition-all cursor-pointer whitespace-nowrap shrink-0 shadow-lg shadow-amber-500/20"
+          >
+            {shareCopied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+            <span>{shareCopied ? 'Link Copied!' : 'Copy Invite Link'}</span>
+          </button>
+        </div>
+      )}
+
       {/* Main Grid: Left Controls, Right Rotation Queue & Liquidity Hub */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
@@ -1118,6 +1157,13 @@ export default function VaultDashboardPage() {
                       </span>
                     </div>
                   )}
+
+                  {vault.memberCount <= BigInt(1) && (
+                    <div className="mt-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5 text-[11px] text-amber-300 leading-relaxed">
+                      <span className="font-semibold text-amber-200">Solo Member Circle: </span>
+                      Depositing completes Cycle #{vault.currentCycle.toString()} and automatically transfers the pot back to your wallet.
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -1194,6 +1240,73 @@ export default function VaultDashboardPage() {
             </div>
 
           </div>
+
+          {/* COMPLETED CYCLES & ON-CHAIN PAYOUT HISTORY */}
+          {vault.currentCycle > BigInt(0) && (
+            <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  <h3 className="text-sm font-bold text-white">Completed Cycles & Payout History</h3>
+                </div>
+                <span className="text-xs font-mono text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-0.5 rounded-lg border border-emerald-500/20">
+                  {vault.currentCycle.toString()} Cycle{Number(vault.currentCycle) > 1 ? 's' : ''} Settled
+                </span>
+              </div>
+
+              <p className="text-xs text-zinc-400">
+                Verifiable rotation history on Arc Mainnet. When each cycle's deposit quota is fulfilled, the pot transfers directly to the designated beneficiary.
+              </p>
+
+              <div className="space-y-2.5 pt-1">
+                {Array.from({ length: Number(vault.currentCycle) }).map((_, i) => {
+                  const cycleNum = Number(vault.currentCycle) - 1 - i;
+                  const beneficiary = vault.members.length > 0
+                    ? vault.members[cycleNum % vault.members.length]
+                    : vault.creator;
+                  const isUser = userAddress && beneficiary.toLowerCase() === userAddress.toLowerCase();
+                  
+                  return (
+                    <div
+                      key={cycleNum}
+                      className="flex items-center justify-between rounded-2xl bg-black/40 border border-white/[0.06] p-4 text-xs hover:border-emerald-500/30 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono font-bold text-xs">
+                          #{cycleNum}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-white">
+                              Pot Disbursed to {formatAddress(beneficiary, 5)}
+                            </span>
+                            {isUser && (
+                              <span className="rounded bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.2 text-[10px] text-emerald-300 font-medium">
+                                You
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-zinc-400 mt-0.5">
+                            Status: <span className="text-emerald-400 font-medium">100% Fulfilled & Transferred to Wallet</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right font-mono">
+                        <span className="text-sm font-bold text-emerald-400">
+                          +${formatUSDC(vault.contributionAmount)} USDC
+                        </span>
+                        <div className="text-[10px] text-zinc-500 flex items-center justify-end gap-1 mt-0.5">
+                          <Check className="h-3 w-3 text-emerald-400" />
+                          <span>Disbursed On-Chain</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ADVANCED CAPITAL EFFICIENCY & LIQUIDITY HUB (Borrowing, Auction, Yield) */}
           <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-6 shadow-xl space-y-5">
