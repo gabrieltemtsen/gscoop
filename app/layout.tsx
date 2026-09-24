@@ -14,10 +14,52 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
+const APP_URL = (
+  process.env.NEXT_PUBLIC_APP_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'https://gscoop.vercel.app')
+).replace(/\/$/, '');
+
+const miniAppEmbed = {
+  version: '1',
+  imageUrl: `${APP_URL}/farcaster-embed.png`,
+  button: {
+    title: 'Launch GScoop',
+    action: {
+      type: 'launch_miniapp',
+      name: 'GScoop',
+      url: APP_URL,
+      splashImageUrl: `${APP_URL}/farcaster-splash.png`,
+      splashBackgroundColor: '#09090b',
+    },
+  },
+};
+
+const frameEmbed = {
+  ...miniAppEmbed,
+  button: {
+    ...miniAppEmbed.button,
+    action: {
+      ...miniAppEmbed.button.action,
+      type: 'launch_frame',
+    },
+  },
+};
+
 export const metadata: Metadata = {
+  metadataBase: new URL(APP_URL),
   title: 'GScoop | Decentralized Cooperative Savings on Arc Mainnet',
   description:
     'Trust-minimized decentralized cooperative savings platform (Rotating Savings Circles / ROSCA) with native USDC gas fees on Arc Mainnet.',
+  openGraph: {
+    title: 'GScoop | Cooperative USDC Savings on Arc Mainnet',
+    description:
+      'Automated rotating savings circles and collaborative lending pools with native USDC on Arc Mainnet.',
+    images: [`${APP_URL}/farcaster-og.png`],
+  },
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
@@ -27,6 +69,10 @@ export const metadata: Metadata = {
     apple: [
       { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
     ],
+  },
+  other: {
+    'fc:miniapp': JSON.stringify(miniAppEmbed),
+    'fc:frame': JSON.stringify(frameEmbed),
   },
 };
 
