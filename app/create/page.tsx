@@ -169,28 +169,28 @@ export default function CreateVaultPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:py-12 sm:px-6 lg:px-8">
       
       {/* Header */}
-      <div className="max-w-2xl mb-8">
-        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-0.5 text-xs font-semibold text-emerald-400 mb-2">
+      <div className="max-w-2xl mb-6 sm:mb-8">
+        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-0.5 text-[11px] sm:text-xs font-semibold text-emerald-400 mb-2">
           <Layers className="h-3.5 w-3.5" />
           <span>GScoop Factory V1</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+        <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
           Deploy a Cooperative Vault
         </h1>
-        <p className="mt-2 text-sm text-zinc-400 leading-relaxed">
+        <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed">
           Configure an immutable rotating savings circle on Arc Mainnet. 
           Zero separate gas token required—fees are fractions of a cent paid directly in native USDC.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-start">
         
         {/* Left: Interactive Creation Form */}
         <div className="lg:col-span-7">
-          <form onSubmit={handleDeploy} className="space-y-6 rounded-3xl border border-white/[0.08] bg-[#121215] p-6 sm:p-8 shadow-xl">
+          <form onSubmit={handleDeploy} className="space-y-5 sm:space-y-6 rounded-2xl sm:rounded-3xl border border-white/[0.08] bg-[#121215] p-4 sm:p-8 shadow-xl">
             
             {/* Wrong Network Warning Banner */}
             {isWrongNetwork && (

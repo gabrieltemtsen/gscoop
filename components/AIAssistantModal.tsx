@@ -264,28 +264,28 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       <div 
-        className="relative flex flex-col w-full max-w-2xl h-[620px] rounded-2xl border border-white/[0.12] bg-[#0c0c0f] shadow-2xl overflow-hidden"
+        className="relative flex flex-col w-full max-w-2xl h-[82vh] sm:h-[620px] rounded-2xl border border-white/[0.12] bg-[#0c0c0f] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#121216]">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 p-0.5 shadow-lg shadow-emerald-500/20">
+        <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-white/[0.08] bg-[#121216]">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 p-0.5 shadow-lg shadow-emerald-500/20">
               <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-black">
-                <Bot className="h-5 w-5 text-cyan-400" />
+                <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-400" />
               </div>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-white">GScoop AI Copilot</h3>
+                <h3 className="text-xs sm:text-sm font-semibold text-white">GScoop AI Copilot</h3>
                 <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/25">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   <span>Arc Mainnet</span>
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400">Ask about cycles, savings, borrowing, yields, or pool setup</p>
+              <p className="text-[10px] sm:text-[11px] text-zinc-400 line-clamp-1">Ask about cycles, savings, borrowing, yields, or pool setup</p>
             </div>
           </div>
 
@@ -320,7 +320,7 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
         </div>
 
         {/* Quick Topics */}
-        <div className="flex items-center gap-2 px-6 py-2.5 border-b border-white/[0.04] bg-[#0f0f13] overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-2 px-4 sm:px-6 py-2.5 border-b border-white/[0.04] bg-[#0f0f13] overflow-x-auto no-scrollbar">
           {PRESET_TOPICS.map((item, idx) => (
             <button
               key={idx}
@@ -333,7 +333,7 @@ export function AIAssistantModal({ isOpen, onClose }: AIAssistantModalProps) {
         </div>
 
         {/* Message Log */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 text-sm">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-sm">
           {messages.map((m, i) => (
             <div
               key={i}

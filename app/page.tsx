@@ -57,19 +57,19 @@ export default function Home() {
       <div className="pointer-events-none absolute top-[450px] right-[-100px] -z-10 h-[400px] w-[500px] rounded-full bg-cyan-500/5 blur-3xl" />
 
       {/* Hero Section */}
-      <section className="mx-auto max-w-7xl px-4 pt-20 pb-16 sm:px-6 lg:px-8 text-center sm:text-left">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <section className="mx-auto max-w-7xl px-4 pt-6 pb-10 sm:pt-16 sm:pb-16 sm:px-6 lg:px-8 text-center sm:text-left">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           
-          <div className="lg:col-span-7 space-y-6">
+          <div className="lg:col-span-7 space-y-5 sm:space-y-6">
             
             {/* Tag Badge */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-400 backdrop-blur-md">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Deployed Natively on Arc Mainnet (Chain ID: 5042)</span>
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] sm:text-xs font-semibold text-emerald-400 backdrop-blur-md">
+              <span className="flex h-2 w-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Live on Arc Mainnet (Chain ID: 5042)</span>
             </div>
 
             {/* Headline */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.1]">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.12]">
               Decentralized <br className="hidden sm:inline" />
               Cooperative Savings.{' '}
               <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
@@ -78,15 +78,15 @@ export default function Home() {
             </h1>
 
             {/* Sub-headline */}
-            <p className="text-base sm:text-lg text-zinc-400 max-w-2xl leading-relaxed">
+            <p className="text-sm sm:text-lg text-zinc-400 max-w-2xl mx-auto sm:mx-0 leading-relaxed">
               Save in pure dollar amounts with your trusted circle on Arc Mainnet. Automated smart contract payouts with native USDC gas, float yield, and zero friction.
             </p>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 pt-1 sm:pt-2">
               <Link
                 href="/explore"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-6 py-3.5 text-sm font-semibold text-black shadow-lg shadow-emerald-500/25 hover:opacity-95 hover:scale-[1.01] active:scale-[0.99] transition-all"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-6 py-3 sm:py-3.5 text-sm font-semibold text-black shadow-lg shadow-emerald-500/25 hover:opacity-95 hover:scale-[1.01] active:scale-[0.99] transition-all"
               >
                 <span>Explore Live Pools</span>
                 <ArrowRight className="h-4 w-4" />
@@ -94,7 +94,7 @@ export default function Home() {
 
               <Link
                 href="/create"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-[#141418] px-6 py-3.5 text-sm font-semibold text-white hover:bg-white/[0.08] hover:border-white/25 transition-all"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-[#141418] px-6 py-3 sm:py-3.5 text-sm font-semibold text-white hover:bg-white/[0.08] hover:border-white/25 transition-all"
               >
                 <Layers className="h-4 w-4 text-zinc-400" />
                 <span>Deploy a Cooperative</span>
@@ -102,65 +102,65 @@ export default function Home() {
             </div>
 
             {/* Zero Friction Highlights */}
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/[0.08] text-left">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-5 sm:pt-6 border-t border-white/[0.08] text-left">
               <div>
-                <p className="text-xs text-zinc-400">Gas Asset</p>
-                <p className="text-sm font-bold text-white mt-0.5 flex items-center gap-1.5">
-                  <Coins className="h-3.5 w-3.5 text-emerald-400" />
-                  Native USDC
+                <p className="text-[11px] sm:text-xs text-zinc-400">Gas Asset</p>
+                <p className="text-xs sm:text-sm font-bold text-white mt-0.5 flex items-center gap-1">
+                  <Coins className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                  <span className="truncate">Native USDC</span>
                 </p>
               </div>
               <div>
-                <p className="text-xs text-zinc-400">Settlement</p>
-                <p className="text-sm font-bold text-white mt-0.5 flex items-center gap-1.5">
-                  <Zap className="h-3.5 w-3.5 text-cyan-400" />
-                  &lt;1 Second
+                <p className="text-[11px] sm:text-xs text-zinc-400">Settlement</p>
+                <p className="text-xs sm:text-sm font-bold text-white mt-0.5 flex items-center gap-1">
+                  <Zap className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+                  <span className="truncate">&lt;1 Second</span>
                 </p>
               </div>
               <div>
-                <p className="text-xs text-zinc-400">Security</p>
-                <p className="text-sm font-bold text-emerald-400 mt-0.5 flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  100% On-Chain
+                <p className="text-[11px] sm:text-xs text-zinc-400">Security</p>
+                <p className="text-xs sm:text-sm font-bold text-emerald-400 mt-0.5 flex items-center gap-1">
+                  <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">100% On-Chain</span>
                 </p>
               </div>
             </div>
           </div>
 
           {/* Hero Live Visual Card */}
-          <div className="lg:col-span-5">
-            <div className="relative rounded-3xl border border-white/[0.12] bg-[#121216]/90 p-6 shadow-2xl backdrop-blur-xl">
+          <div className="lg:col-span-5 text-left">
+            <div className="relative rounded-2xl sm:rounded-3xl border border-white/[0.12] bg-[#121216]/90 p-4 sm:p-6 shadow-2xl backdrop-blur-xl">
               
               {/* Card Badge */}
-              <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+              <div className="flex items-center justify-between gap-2 border-b border-white/[0.08] pb-3.5 sm:pb-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-emerald-400">
                     Live Arc State Machine
                   </span>
                 </div>
-                <span className="font-mono text-xs text-zinc-400">Block Finality: Instant</span>
+                <span className="font-mono text-[10px] sm:text-xs text-zinc-400 shrink-0">Finality: Instant</span>
               </div>
 
               {/* Pool Simulation View */}
-              <div className="mt-5 space-y-4">
+              <div className="mt-4 sm:mt-5 space-y-3.5 sm:space-y-4">
                 <div>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-zinc-400">Deployed Vault</span>
                     <span className="text-xs text-emerald-400 font-mono">Chain ID: 5042</span>
                   </div>
-                  <h3 className="text-xl font-bold text-white mt-0.5">Arc Global Synergy Alpha</h3>
+                  <h3 className="text-lg sm:text-xl font-bold text-white mt-0.5">Arc Global Synergy Alpha</h3>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 rounded-2xl bg-black/50 p-4 border border-white/[0.06]">
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 rounded-2xl bg-black/50 p-3.5 sm:p-4 border border-white/[0.06]">
                   <div>
                     <span className="text-[11px] text-zinc-400">Cycle Payout Pot</span>
-                    <p className="text-xl font-extrabold text-emerald-400 font-mono mt-0.5">$250.00</p>
+                    <p className="text-lg sm:text-xl font-extrabold text-emerald-400 font-mono mt-0.5">$250.00</p>
                     <span className="text-[10px] text-zinc-400">5 spots × $50 USDC</span>
                   </div>
                   <div>
                     <span className="text-[11px] text-zinc-400">Estimated Gas Fee</span>
-                    <p className="text-xl font-extrabold text-cyan-400 font-mono mt-0.5">~$0.005</p>
+                    <p className="text-lg sm:text-xl font-extrabold text-cyan-400 font-mono mt-0.5">~$0.005</p>
                     <span className="text-[10px] text-zinc-400">Native USDC Gas</span>
                   </div>
                 </div>
@@ -171,25 +171,25 @@ export default function Home() {
                     <span>Queue Rotation</span>
                     <span className="text-emerald-400 font-medium">Verified On-Chain</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 border border-emerald-400/50 p-2.5 text-center shadow-lg shadow-emerald-500/10">
-                      <span className="block text-[10px] text-emerald-300 font-semibold">Beneficiary #1</span>
-                      <span className="font-mono text-xs text-emerald-300 font-bold">0x6268...</span>
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className="flex-1 min-w-0 rounded-xl bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 border border-emerald-400/50 p-2 sm:p-2.5 text-center shadow-lg shadow-emerald-500/10">
+                      <span className="block text-[9px] sm:text-[10px] text-emerald-300 font-semibold truncate">Turn #1</span>
+                      <span className="block font-mono text-[11px] sm:text-xs text-emerald-300 font-bold truncate">0x6268...</span>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-zinc-400" />
-                    <div className="flex-1 rounded-xl bg-white/[0.03] border border-white/[0.06] p-2.5 text-center">
-                      <span className="block text-[10px] text-zinc-400">Spot #2</span>
-                      <span className="font-mono text-xs text-zinc-400">Open Queue</span>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                    <div className="flex-1 min-w-0 rounded-xl bg-white/[0.03] border border-white/[0.06] p-2 sm:p-2.5 text-center">
+                      <span className="block text-[9px] sm:text-[10px] text-zinc-400 truncate">Spot #2</span>
+                      <span className="block font-mono text-[11px] sm:text-xs text-zinc-400 truncate">Open</span>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-zinc-400" />
-                    <div className="flex-1 rounded-xl bg-white/[0.03] border border-white/[0.06] p-2.5 text-center">
-                      <span className="block text-[10px] text-zinc-400">Spot #3</span>
-                      <span className="font-mono text-xs text-zinc-400">Open Queue</span>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                    <div className="flex-1 min-w-0 rounded-xl bg-white/[0.03] border border-white/[0.06] p-2 sm:p-2.5 text-center">
+                      <span className="block text-[9px] sm:text-[10px] text-zinc-400 truncate">Spot #3</span>
+                      <span className="block font-mono text-[11px] sm:text-xs text-zinc-400 truncate">Open</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-3">
+                <div className="pt-2 sm:pt-3">
                   <Link
                     href={`/vault/${SHOWCASE_VAULT_ADDRESS}`}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-2.5 text-xs font-semibold text-black hover:opacity-95 transition-all shadow-md shadow-emerald-500/20"
@@ -206,7 +206,7 @@ export default function Home() {
       </section>
 
       {/* 3 Core Technical Edges Section */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 border-t border-white/[0.08]">
+      <section className="mx-auto max-w-7xl px-4 py-10 sm:py-16 sm:px-6 lg:px-8 border-t border-white/[0.08]">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Architectural Advantage</span>
           <h2 className="mt-2 text-3xl font-extrabold text-white">

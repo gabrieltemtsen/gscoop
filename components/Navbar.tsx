@@ -66,25 +66,27 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#09090b]/80 backdrop-blur-xl transition-all">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#09090b]/85 backdrop-blur-xl transition-all">
+      <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-3 sm:px-6 lg:px-8 gap-2">
         
         {/* Brand Logo */}
-        <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 p-0.5 shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform duration-200">
+        <div className="flex items-center gap-4 lg:gap-8 min-w-0">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 group shrink-0">
+            <div className="relative flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 p-0.5 shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform duration-200">
               <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-[#0c0c0e]">
-                <Coins className="h-5 w-5 text-emerald-400 group-hover:rotate-12 transition-transform duration-300" />
+                <Coins className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400 group-hover:rotate-12 transition-transform duration-300" />
               </div>
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-lg tracking-tight text-white">GScoop</span>
-                <span className="rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
+                <span className="font-bold text-base sm:text-lg tracking-tight text-white">GScoop</span>
+                <span className="hidden sm:inline-block whitespace-nowrap rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
                   Arc Mainnet
                 </span>
               </div>
-              <span className="text-[11px] text-zinc-400 font-normal">Global Synergy Cooperative</span>
+              <span className="hidden sm:block text-[11px] text-zinc-400 font-normal">
+                Global Synergy Cooperative
+              </span>
             </div>
           </Link>
 
@@ -110,33 +112,33 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
         </div>
 
         {/* Right Section: Status, AI trigger & Wallet */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           
           {/* Share on Farcaster Button */}
           <button
             onClick={() => {
-              const currentUrl = typeof window !== 'undefined' ? window.location.origin + pathname : 'https://gscoop.vercel.app';
+              const currentUrl = typeof window !== 'undefined' ? window.location.origin + pathname : 'https://gscoop.xyz';
               shareCast(
                 'Saving and earning yield together with native USDC on Arc Mainnet via GScoop!',
                 currentUrl
               );
             }}
-            className="flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1.5 text-xs font-semibold text-purple-300 hover:bg-purple-500/20 transition-all"
+            className="flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 p-2 sm:px-2.5 sm:py-1.5 text-xs font-semibold text-purple-300 hover:bg-purple-500/20 transition-all"
             title="Share on Farcaster"
           >
             <Share2 className="h-3.5 w-3.5 text-purple-400" />
             <span className="hidden sm:inline">Cast</span>
           </button>
 
-          {/* AI Assistant Button */}
+          {/* AI Assistant Button (Desktop) */}
           {onOpenAiAssistant && (
             <button
               onClick={onOpenAiAssistant}
-              className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition-all shadow-sm shadow-cyan-500/10"
+              className="hidden md:flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition-all shadow-sm shadow-cyan-500/10"
               title="Chat with GScoop AI Coop Assistant"
             >
               <Bot className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
-              <span className="hidden sm:inline">Coop AI</span>
+              <span>Coop AI</span>
             </button>
           )}
 
@@ -162,10 +164,11 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
                 }
               }}
               disabled={isSwitchingNetwork}
-              className="flex items-center gap-1.5 rounded-lg bg-amber-500/20 border border-amber-500/30 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/30 transition-all cursor-pointer"
+              className="flex items-center gap-1 rounded-lg bg-amber-500/20 border border-amber-500/30 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold text-amber-300 hover:bg-amber-500/30 transition-all cursor-pointer"
             >
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
-              <span>{isSwitchingNetwork ? 'Switching...' : 'Switch to Arc'}</span>
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+              <span>{isSwitchingNetwork ? '...' : 'Switch'}</span>
+              <span className="hidden sm:inline">to Arc</span>
             </button>
           ) : (
             <div className="hidden sm:flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1 text-xs text-emerald-400">
@@ -196,35 +199,35 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
                 }
               }}
               disabled={isPending}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-xs font-semibold text-black shadow-lg shadow-emerald-500/20 hover:opacity-95 active:scale-98 transition-all"
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-black shadow-lg shadow-emerald-500/20 hover:opacity-95 active:scale-98 transition-all"
             >
-              <Wallet className="h-4 w-4" />
-              <span>{isPending ? 'Connecting...' : 'Connect Wallet'}</span>
+              <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span>{isPending ? '...' : 'Connect'}</span>
             </button>
           ) : (
             <div className="relative">
               <button
                 onClick={() => setShowWalletMenu(!showWalletMenu)}
-                className="flex items-center gap-2 rounded-xl border border-white/[0.12] bg-[#141418] px-3 py-1.5 text-xs font-medium text-white hover:border-white/20 transition-all shadow-sm"
+                className="flex items-center gap-1.5 sm:gap-2 rounded-xl border border-white/[0.12] bg-[#141418] px-2.5 sm:px-3 py-1.5 text-xs font-medium text-white hover:border-white/20 transition-all shadow-sm"
               >
                 {farcasterUser?.pfpUrl ? (
                   <img
                     src={farcasterUser.pfpUrl}
                     alt={farcasterUser.username || 'Farcaster'}
-                    className="h-4 w-4 rounded-full object-cover"
+                    className="h-4 w-4 rounded-full object-cover shrink-0"
                   />
                 ) : (
-                  <div className="h-2 w-2 rounded-full bg-emerald-400" />
+                  <div className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
                 )}
-                <span className="font-mono">
+                <span className="font-mono max-w-[88px] sm:max-w-none truncate">
                   {farcasterUser?.username ? `@${farcasterUser.username}` : formatAddress(address)}
                 </span>
                 {balanceData && (
-                  <span className="border-l border-white/10 pl-2 text-emerald-400 font-semibold">
+                  <span className="hidden sm:inline border-l border-white/10 pl-2 text-emerald-400 font-semibold">
                     ${formatUSDC(balanceData.value)} USDC
                   </span>
                 )}
-                <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
+                <ChevronDown className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
               </button>
 
               {showWalletMenu && (
@@ -296,36 +299,8 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
               )}
             </div>
           )}
-
-          {/* Mobile Menu Toggle */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06]"
-          >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
         </div>
       </div>
-
-      {/* Mobile Menu Dropdown */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-b border-white/[0.08] bg-[#09090b] px-4 py-3 space-y-2">
-          {navLinks.map((link) => (
-            <Link
-              key={link.name}
-              href={link.href}
-              onClick={() => setMobileMenuOpen(false)}
-              className="block rounded-lg px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-white/[0.06] hover:text-white"
-            >
-              {link.name}
-            </Link>
-          ))}
-          <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between text-xs text-zinc-400">
-            <span>Arc Gas Token:</span>
-            <span className="font-semibold text-emerald-400">USDC (18 Decimals)</span>
-          </div>
-        </div>
-      )}
     </header>
   );
 }

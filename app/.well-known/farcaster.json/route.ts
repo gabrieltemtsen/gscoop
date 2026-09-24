@@ -12,8 +12,7 @@ export async function GET(request: NextRequest) {
 
   const appUrl = (
     process.env.NEXT_PUBLIC_APP_URL ||
-    request.nextUrl.origin ||
-    'https://gscoop.vercel.app'
+    'https://gscoop.xyz'
   ).replace(/\/$/, '');
 
   const appConfig = {
@@ -42,13 +41,13 @@ export async function GET(request: NextRequest) {
     accountAssociation: {
       header:
         process.env.FARCASTER_HEADER ||
-        'eyJmaWQiOjEsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhmYXJjYXN0ZXIifQ',
+        'eyJmaWQiOjQyMDU2NCwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweGREOGVFNTU1NTc0NGQ2ODQyZTNjNTcyZTQ2RjQyMDkyZWQ3MzI2YjYifQ',
       payload:
         process.env.FARCASTER_PAYLOAD ||
-        Buffer.from(
-          JSON.stringify({ domain: new URL(appUrl).hostname })
-        ).toString('base64url'),
-      signature: process.env.FARCASTER_SIGNATURE || '0x',
+        'eyJkb21haW4iOiJnc2Nvb3AueHl6In0',
+      signature:
+        process.env.FARCASTER_SIGNATURE ||
+        '6P0+w4vnpw0XKV84vYbdd1CRIAdPEd0ZNCZMTBEFpgMciQ+cXOmSQLGThMBkzuK/Hu73Z0wwwCV61BY7GoPaDxw=',
     },
     miniapp: appConfig,
     frame: appConfig,
@@ -61,3 +60,4 @@ export async function GET(request: NextRequest) {
     },
   });
 }
+

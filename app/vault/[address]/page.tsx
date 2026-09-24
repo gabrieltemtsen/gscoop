@@ -842,38 +842,39 @@ export default function VaultDashboardPage() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:py-10 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
       
       {/* Top Navigation & Breadcrumbs */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <Link
           href="/explore"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 sm:gap-2 text-xs font-semibold text-zinc-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Explore</span>
+          <span>Back</span>
         </Link>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
-              const url = typeof window !== 'undefined' ? window.location.href : `https://gscoop.vercel.app/vault/${vault.address}`;
+              const url = typeof window !== 'undefined' ? window.location.href : `https://gscoop.xyz/vault/${vault.address}`;
               shareCast(
                 `Join our "${vault.name}" collaborative USDC savings circle on Arc Mainnet ($${formatUSDC(vault.contributionAmount)} USDC/cycle)!`,
                 url
               );
             }}
-            className="flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-3 py-1.5 text-xs font-semibold text-purple-300 hover:bg-purple-500/20 transition-all"
+            className="flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-purple-300 hover:bg-purple-500/20 transition-all"
           >
             <Share2 className="h-3.5 w-3.5 text-purple-400" />
-            <span>Cast on Farcaster</span>
+            <span className="hidden sm:inline">Cast on Farcaster</span>
+            <span className="sm:hidden">Cast</span>
           </button>
           <button
             onClick={handleShare}
-            className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-[#121215] px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all"
+            className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-[#121215] px-2.5 sm:px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all"
           >
             {shareCopied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-            <span>{shareCopied ? 'Link Copied!' : 'Copy Link'}</span>
+            <span>{shareCopied ? 'Copied!' : 'Copy Link'}</span>
           </button>
         </div>
       </div>
@@ -914,13 +915,13 @@ export default function VaultDashboardPage() {
       )}
 
       {/* Vault Header Card */}
-      <div className="rounded-3xl border border-white/[0.1] bg-[#121215] p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+      <div className="rounded-2xl sm:rounded-3xl border border-white/[0.1] bg-[#121215] p-4 sm:p-8 shadow-2xl relative overflow-hidden">
         <div className="pointer-events-none absolute -top-20 -right-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
 
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 sm:gap-6">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white">{vault.name}</h1>
+              <h1 className="text-xl sm:text-3xl font-extrabold text-white">{vault.name}</h1>
               <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
                 Cycle #{vault.currentCycle.toString()}
               </span>
@@ -942,7 +943,7 @@ export default function VaultDashboardPage() {
             </p>
 
             {/* Address & Explorer Link */}
-            <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-mono text-zinc-400">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 pt-1 sm:pt-2 text-xs font-mono text-zinc-400">
               <span className="flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-lg border border-white/[0.06]">
                 <span>Vault: {formatAddress(vault.address, 6)}</span>
                 <button onClick={handleCopy} className="hover:text-white transition-colors" title="Copy address">
@@ -960,16 +961,16 @@ export default function VaultDashboardPage() {
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
 
-              <span className="text-zinc-500">|</span>
+              <span className="hidden sm:inline text-zinc-500">|</span>
               <span className="text-zinc-400">Created {new Date(vault.createdAt).toLocaleDateString()}</span>
             </div>
           </div>
 
           {/* Quick Metrics */}
           <div className="flex flex-wrap md:flex-col gap-3">
-            <div className="rounded-2xl bg-black/50 border border-white/[0.08] p-4 text-right flex-1 md:flex-initial">
+            <div className="rounded-2xl bg-black/50 border border-white/[0.08] p-3.5 sm:p-4 text-left sm:text-right flex-1 md:flex-initial">
               <span className="text-[11px] text-zinc-400 uppercase tracking-wider">Active Cycle Pot</span>
-              <p className="text-2xl sm:text-3xl font-extrabold text-emerald-400 font-mono mt-0.5">
+              <p className="text-xl sm:text-3xl font-extrabold text-emerald-400 font-mono mt-0.5">
                 ${formatUSDC(vault.balance)}
               </p>
               <span className="text-[10px] text-zinc-400">
@@ -978,7 +979,7 @@ export default function VaultDashboardPage() {
             </div>
 
             {vault.reserveFund > BigInt(0) && (
-              <div className="rounded-2xl bg-cyan-950/20 border border-cyan-500/20 p-3 text-right flex-1 md:flex-initial">
+              <div className="rounded-2xl bg-cyan-950/20 border border-cyan-500/20 p-3 text-left sm:text-right flex-1 md:flex-initial">
                 <span className="text-[10px] text-cyan-300 uppercase tracking-wider">Reserve & Credit Fund</span>
                 <p className="text-lg font-bold text-cyan-400 font-mono">
                   ${formatUSDC(vault.reserveFund)} USDC
@@ -999,13 +1000,13 @@ export default function VaultDashboardPage() {
 
       {/* Solo Member Advisory Banner */}
       {vault.memberCount <= BigInt(1) && (
-        <div className="rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
+        <div className="rounded-2xl sm:rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-4 sm:p-5 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
             <div className="rounded-2xl bg-amber-500/20 border border-amber-500/30 p-2.5 text-amber-400 shrink-0">
               <Users className="h-5 w-5" />
             </div>
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">
                   Solo Member Circle (1 of {vault.maxMembers > 0 ? vault.maxMembers.toString() : '∞'} Members)
                 </span>
@@ -1025,13 +1026,13 @@ export default function VaultDashboardPage() {
             <button
               type="button"
               onClick={() => {
-                const url = typeof window !== 'undefined' ? window.location.href : `https://gscoop.vercel.app/vault/${vault.address}`;
+                const url = typeof window !== 'undefined' ? window.location.href : `https://gscoop.xyz/vault/${vault.address}`;
                 shareCast(
                   `Join my "${vault.name}" collaborative USDC savings circle on Arc Mainnet ($${formatUSDC(vault.contributionAmount)} USDC/cycle)!`,
                   url
                 );
               }}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-purple-500 transition-all cursor-pointer whitespace-nowrap shadow-lg shadow-purple-500/20"
+              className="inline-flex flex-1 sm:flex-initial items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-purple-500 transition-all cursor-pointer whitespace-nowrap shadow-lg shadow-purple-500/20"
             >
               <Share2 className="h-4 w-4" />
               <span>Cast Invite</span>
@@ -1039,7 +1040,7 @@ export default function VaultDashboardPage() {
             <button
               type="button"
               onClick={handleShare}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-bold text-black hover:bg-amber-400 transition-all cursor-pointer whitespace-nowrap shadow-lg shadow-amber-500/20"
+              className="inline-flex flex-1 sm:flex-initial items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-bold text-black hover:bg-amber-400 transition-all cursor-pointer whitespace-nowrap shadow-lg shadow-amber-500/20"
             >
               {shareCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               <span>{shareCopied ? 'Link Copied!' : 'Copy Link'}</span>
