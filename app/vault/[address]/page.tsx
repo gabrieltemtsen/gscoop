@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { useAccount, useWriteContract, useBalance } from 'wagmi';
+import { useAccount, useWriteContract, useBalance, useChainId, useSwitchChain } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { getVaultByAddress, saveVault, CoopVaultData, AutoSaveMandateData } from '@/lib/vaultStore';
 import { fetchOnChainVault, fetchUserOnChainStatus } from '@/lib/onChainVaults';
 import { publicClient } from '@/lib/publicClient';
 import { formatAddress, formatDuration, formatTimeRemaining, formatUSDC } from '@/lib/utils';
 import { arcMainnet } from '@/lib/arcChain';
+import { ensureArcNetwork } from '@/lib/switchNetwork';
 import { GSCOOP_VAULT_ABI } from '@/lib/contracts';
 import { triggerConfetti } from '@/components/ConfettiCelebration';
 import Link from 'next/link';
@@ -19,11 +20,13 @@ import {
   ShieldCheck, 
   Zap, 
   ArrowLeft, 
+  ArrowRight,
   ExternalLink, 
   Copy, 
   Check, 
   Crown, 
   AlertCircle, 
+  AlertTriangle,
   CheckCircle2, 
   Sparkles, 
   Share2, 
@@ -42,7 +45,18 @@ export default function VaultDashboardPage() {
   const vaultAddress = rawAddress.toLowerCase();
 
   const { address: userAddress, isConnected } = useAccount();
+  const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
+
+  const isWrongNetwork = isConnected && chainId !== arcMainnet.id;
+  const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
+
+  const ensureArcChain = async () => {
+    if (chainId !== arcMainnet.id) {
+      await ensureArcNetwork(switchChainAsync);
+    }
+  };
 
   const [vault, setVault] = useState<CoopVaultData | null>(null);
   const [copied, setCopied] = useState(false);
@@ -263,6 +277,7 @@ export default function VaultDashboardPage() {
     setIsJoining(true);
 
     try {
+      await ensureArcChain();
       if (writeContractAsync) {
         const hash = await writeContractAsync({
           address: vault.address,
@@ -295,6 +310,7 @@ export default function VaultDashboardPage() {
     setIsDepositing(true);
 
     try {
+      await ensureArcChain();
       if (writeContractAsync) {
         const hash = await writeContractAsync({
           address: vault.address,
@@ -338,6 +354,7 @@ export default function VaultDashboardPage() {
     setIsBorrowing(true);
 
     try {
+      await ensureArcChain();
       const borrowWei = parseUnits(borrowInput, 18);
 
       if (writeContractAsync) {
@@ -375,6 +392,7 @@ export default function VaultDashboardPage() {
     setIsRepaying(true);
 
     try {
+      await ensureArcChain();
       if (writeContractAsync) {
         const hash = await writeContractAsync({
           address: vault.address,
@@ -411,6 +429,7 @@ export default function VaultDashboardPage() {
     setIsBidding(true);
 
     try {
+      await ensureArcChain();
       const bidWei = parseUnits(bidInput, 18);
 
       if (writeContractAsync) {
@@ -448,6 +467,7 @@ export default function VaultDashboardPage() {
     setIsHarvesting(true);
 
     try {
+      await ensureArcChain();
       if (writeContractAsync) {
         const hash = await writeContractAsync({
           address: vault.address,
@@ -480,6 +500,7 @@ export default function VaultDashboardPage() {
     setIsDistributing(true);
 
     try {
+      await ensureArcChain();
       if (writeContractAsync) {
         const hash = await writeContractAsync({
           address: vault.address,
@@ -516,6 +537,7 @@ export default function VaultDashboardPage() {
     setIsAdvancing(true);
 
     try {
+      await ensureArcChain();
       const advWei = parseUnits(advanceInput, 18);
 
       if (writeContractAsync) {
@@ -553,6 +575,7 @@ export default function VaultDashboardPage() {
     setIsBoosterDepositing(true);
 
     try {
+      await ensureArcChain();
       const valWei = parseUnits(boosterInput, 18);
 
       if (writeContractAsync) {
@@ -588,6 +611,7 @@ export default function VaultDashboardPage() {
     setIsBoosterDepositing(true);
 
     try {
+      await ensureArcChain();
       const withdrawAmount = userBoosterSavings;
 
       if (writeContractAsync) {
@@ -625,6 +649,7 @@ export default function VaultDashboardPage() {
     setIsBuyingShares(true);
 
     try {
+      await ensureArcChain();
       if (writeContractAsync) {
         const hash = await writeContractAsync({
           address: vault.address,
@@ -660,6 +685,7 @@ export default function VaultDashboardPage() {
     setIsDistributingDividends(true);
 
     try {
+      await ensureArcChain();
       const divWei = parseUnits(dividendInput, 18);
 
       if (writeContractAsync) {
@@ -696,6 +722,7 @@ export default function VaultDashboardPage() {
     setIsSettingUpAutoSave(true);
 
     try {
+      await ensureArcChain();
       const totalAmount = vault.contributionAmount * BigInt(autoSaveCycles);
 
       if (writeContractAsync) {
@@ -734,6 +761,7 @@ export default function VaultDashboardPage() {
     setIsCancellingAutoSave(true);
 
     try {
+      await ensureArcChain();
       if (writeContractAsync) {
         const hash = await writeContractAsync({
           address: vault.address,
@@ -768,6 +796,7 @@ export default function VaultDashboardPage() {
     setIsExecutingDebit(true);
 
     try {
+      await ensureArcChain();
       if (writeContractAsync) {
         const hash = await writeContractAsync({
           address: vault.address,
@@ -829,6 +858,41 @@ export default function VaultDashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* Wrong Network Warning Banner */}
+      {isWrongNetwork && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-amber-200">
+                Wallet Connected to Different Chain (ID: {chainId})
+              </p>
+              <p className="text-[11px] text-amber-300/80">
+                This cooperative savings vault operates on Arc Mainnet (5042). Switch network to deposit, join, or manage your position.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              setIsSwitchingNetwork(true);
+              try {
+                await ensureArcNetwork(switchChainAsync);
+              } catch (err: any) {
+                alert(err?.message || 'Failed to switch network');
+              } finally {
+                setIsSwitchingNetwork(false);
+              }
+            }}
+            disabled={isSwitchingNetwork}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-bold text-black hover:bg-amber-400 transition-all cursor-pointer whitespace-nowrap shrink-0"
+          >
+            <span>{isSwitchingNetwork ? 'Switching...' : 'Switch to Arc Mainnet'}</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Vault Header Card */}
       <div className="rounded-3xl border border-white/[0.1] bg-[#121215] p-6 sm:p-8 shadow-2xl relative overflow-hidden">

@@ -1,9 +1,10 @@
 import { http, createConfig } from 'wagmi';
 import { injected } from 'wagmi/connectors';
+import { mainnet, sepolia } from 'wagmi/chains';
 import { arcMainnet } from './arcChain';
 
 export const config = createConfig({
-  chains: [arcMainnet],
+  chains: [arcMainnet, mainnet, sepolia],
   connectors: [
     injected({
       target: 'metaMask',
@@ -14,6 +15,9 @@ export const config = createConfig({
     [arcMainnet.id]: http('https://rpc.mainnet.arc.io', {
       batch: true,
     }),
+    [mainnet.id]: http(),
+    [sepolia.id]: http(),
   },
   ssr: true,
 });
+

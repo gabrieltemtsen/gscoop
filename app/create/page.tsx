@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useChainId, useSwitchChain } from 'wagmi';
 import { parseUnits, parseEventLogs } from 'viem';
 import { FACTORY_ADDRESS, GSCOOP_FACTORY_ABI } from '@/lib/contracts';
 import { arcMainnet } from '@/lib/arcChain';
+import { ensureArcNetwork } from '@/lib/switchNetwork';
 import { publicClient } from '@/lib/publicClient';
 import { fetchOnChainVault } from '@/lib/onChainVaults';
 import { saveVault, CoopVaultData } from '@/lib/vaultStore';
@@ -40,6 +41,9 @@ const MEMBER_PRESETS = [5, 10, 25, 50, 100];
 export default function CreateVaultPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
+  const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -56,6 +60,8 @@ export default function CreateVaultPage() {
   const [deployedVault, setDeployedVault] = useState<CoopVaultData | null>(null);
 
   const { writeContractAsync } = useWriteContract();
+
+  const isWrongNetwork = isConnected && chainId !== arcMainnet.id;
 
   // Financial calculations
   const numContribution = parseFloat(contribution) || 0;
@@ -74,6 +80,11 @@ export default function CreateVaultPage() {
     setIsDeploying(true);
 
     try {
+      // Automatically ensure wallet is on Arc Mainnet (Chain ID: 5042)
+      if (chainId !== arcMainnet.id) {
+        await ensureArcNetwork(switchChainAsync);
+      }
+
       const contributionWei = parseUnits(contribution, 18);
       let vaultAddress: `0x${string}` | null = null;
 
@@ -181,6 +192,41 @@ export default function CreateVaultPage() {
         <div className="lg:col-span-7">
           <form onSubmit={handleDeploy} className="space-y-6 rounded-3xl border border-white/[0.08] bg-[#121215] p-6 sm:p-8 shadow-xl">
             
+            {/* Wrong Network Warning Banner */}
+            {isWrongNetwork && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-400 shrink-0" />
+                  <div>
+                    <p className="text-xs font-semibold text-amber-200">
+                      Wallet Connected to Different Chain (ID: {chainId})
+                    </p>
+                    <p className="text-[11px] text-amber-300/80">
+                      GScoop vaults run on Arc Mainnet (Chain ID: 5042). Switch network to deploy.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsSwitchingNetwork(true);
+                    try {
+                      await ensureArcNetwork(switchChainAsync);
+                    } catch (err: any) {
+                      alert(err?.message || 'Failed to switch network');
+                    } finally {
+                      setIsSwitchingNetwork(false);
+                    }
+                  }}
+                  disabled={isSwitchingNetwork}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-bold text-black hover:bg-amber-400 transition-all cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  <span>{isSwitchingNetwork ? 'Switching...' : 'Switch to Arc'}</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Pool Name */}
             <div>
               <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
@@ -453,7 +499,14 @@ export default function CreateVaultPage() {
               {isDeploying ? (
                 <>
                   <span className="h-4 w-4 rounded-full border-2 border-black border-t-transparent animate-spin" />
-                  <span>Deploying to Arc Mainnet...</span>
+                  <span>
+                    {isWrongNetwork ? 'Switching to Arc & Deploying...' : 'Deploying to Arc Mainnet...'}
+                  </span>
+                </>
+              ) : isWrongNetwork ? (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  <span>Switch Network & Deploy Cooperative</span>
                 </>
               ) : (
                 <>

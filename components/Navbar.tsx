@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain, useBalance } from 'wagmi';
 import { formatAddress, formatUSDC } from '@/lib/utils';
 import { arcMainnet } from '@/lib/arcChain';
+import { ensureArcNetwork } from '@/lib/switchNetwork';
 import { useState } from 'react';
 import { 
   ShieldCheck, 
@@ -31,7 +32,8 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
-  const { switchChain } = useSwitchChain();
+  const { switchChainAsync } = useSwitchChain();
+  const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -117,11 +119,21 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
           {/* Network Switcher Alert or Status */}
           {isWrongNetwork ? (
             <button
-              onClick={() => switchChain({ chainId: arcMainnet.id })}
-              className="flex items-center gap-1.5 rounded-lg bg-amber-500/20 border border-amber-500/30 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/30 transition-all"
+              onClick={async () => {
+                setIsSwitchingNetwork(true);
+                try {
+                  await ensureArcNetwork(switchChainAsync);
+                } catch (err: any) {
+                  alert(err?.message || 'Failed to switch network');
+                } finally {
+                  setIsSwitchingNetwork(false);
+                }
+              }}
+              disabled={isSwitchingNetwork}
+              className="flex items-center gap-1.5 rounded-lg bg-amber-500/20 border border-amber-500/30 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/30 transition-all cursor-pointer"
             >
-              <AlertTriangle className="h-3.5 w-3.5" />
-              <span>Switch to Arc</span>
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+              <span>{isSwitchingNetwork ? 'Switching...' : 'Switch to Arc'}</span>
             </button>
           ) : (
             <div className="hidden sm:flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1 text-xs text-emerald-400">
