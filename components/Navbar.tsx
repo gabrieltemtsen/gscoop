@@ -69,23 +69,18 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
     <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#09090b]/85 backdrop-blur-xl transition-all">
       <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-3 sm:px-6 lg:px-8 gap-2">
         
-        {/* Brand Logo */}
-        <div className="flex items-center gap-4 lg:gap-8 min-w-0">
-          <Link href="/" className="flex items-center gap-2 sm:gap-3 group shrink-0">
-            <div className="relative flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 p-0.5 shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform duration-200">
+        {/* Brand Logo & Primary Nav */}
+        <div className="flex items-center gap-4 lg:gap-6 min-w-0">
+          <Link href="/" className="flex items-center gap-2.5 group shrink-0">
+            <div className="relative flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 p-0.5 shadow-md shadow-emerald-500/15 group-hover:scale-105 transition-transform duration-200">
               <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-[#0c0c0e]">
-                <Coins className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400 group-hover:rotate-12 transition-transform duration-300" />
+                <Coins className="h-4 w-4 text-emerald-400 group-hover:rotate-12 transition-transform duration-300" />
               </div>
             </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-base sm:text-lg tracking-tight text-white">GScoop</span>
-                <span className="hidden sm:inline-block whitespace-nowrap rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
-                  Arc Mainnet
-                </span>
-              </div>
-              <span className="hidden sm:block text-[11px] text-zinc-400 font-normal">
-                Global Synergy Cooperative
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-base sm:text-lg tracking-tight text-white">GScoop</span>
+              <span className="hidden sm:inline-block whitespace-nowrap rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
+                Arc
               </span>
             </div>
           </Link>
@@ -98,7 +93,7 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
                 <Link
                   key={link.name}
                   href={link.href}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                     isActive
                       ? 'text-white bg-white/[0.08] shadow-sm'
                       : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04]'
@@ -111,8 +106,8 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
           </nav>
         </div>
 
-        {/* Right Section: Status, AI trigger & Wallet */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        {/* Right Section: Cast, AI & Wallet */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           
           {/* Share on Farcaster Button */}
           <button
@@ -123,7 +118,7 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
                 currentUrl
               );
             }}
-            className="flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 p-2 sm:px-2.5 sm:py-1.5 text-xs font-semibold text-purple-300 hover:bg-purple-500/20 transition-all"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-purple-500/25 bg-purple-500/10 p-2 sm:px-3 sm:py-1.5 text-xs font-semibold text-purple-300 hover:bg-purple-500/20 transition-all"
             title="Share on Farcaster"
           >
             <Share2 className="h-3.5 w-3.5 text-purple-400" />
@@ -134,24 +129,16 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
           {onOpenAiAssistant && (
             <button
               onClick={onOpenAiAssistant}
-              className="hidden md:flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition-all shadow-sm shadow-cyan-500/10"
+              className="hidden md:flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition-all"
               title="Chat with GScoop AI Coop Assistant"
             >
-              <Bot className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
+              <Bot className="h-3.5 w-3.5 text-cyan-400" />
               <span>Coop AI</span>
             </button>
           )}
 
-          {/* Arc Zero-Friction Gas Indicator */}
-          <div className="hidden lg:flex items-center gap-2 rounded-lg border border-white/[0.08] bg-[#121215] px-3 py-1.5 text-xs text-zinc-300">
-            <Zap className="h-3.5 w-3.5 text-emerald-400" />
-            <span>Gas:</span>
-            <span className="font-semibold text-emerald-400">Native USDC</span>
-            <span className="text-[10px] text-zinc-400">($0.005/tx)</span>
-          </div>
-
-          {/* Network Switcher Alert or Status */}
-          {isWrongNetwork ? (
+          {/* Wrong Network Switcher Alert (only shown when on wrong chain) */}
+          {isWrongNetwork && (
             <button
               onClick={async () => {
                 setIsSwitchingNetwork(true);
@@ -164,17 +151,11 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
                 }
               }}
               disabled={isSwitchingNetwork}
-              className="flex items-center gap-1 rounded-lg bg-amber-500/20 border border-amber-500/30 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold text-amber-300 hover:bg-amber-500/30 transition-all cursor-pointer"
+              className="flex items-center gap-1 whitespace-nowrap rounded-xl bg-amber-500/20 border border-amber-500/30 px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold text-amber-300 hover:bg-amber-500/30 transition-all cursor-pointer"
             >
               <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-              <span>{isSwitchingNetwork ? '...' : 'Switch'}</span>
-              <span className="hidden sm:inline">to Arc</span>
+              <span>{isSwitchingNetwork ? '...' : 'Switch to Arc'}</span>
             </button>
-          ) : (
-            <div className="hidden sm:flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1 text-xs text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping"></span>
-              <span className="font-mono text-[11px]">Arc (5042)</span>
-            </div>
           )}
 
           {/* Connect / User Wallet Menu */}
@@ -199,7 +180,7 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
                 }
               }}
               disabled={isPending}
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-black shadow-lg shadow-emerald-500/20 hover:opacity-95 active:scale-98 transition-all"
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-black shadow-lg shadow-emerald-500/20 hover:opacity-95 active:scale-98 transition-all"
             >
               <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span>{isPending ? '...' : 'Connect'}</span>
@@ -208,7 +189,7 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
             <div className="relative">
               <button
                 onClick={() => setShowWalletMenu(!showWalletMenu)}
-                className="flex items-center gap-1.5 sm:gap-2 rounded-xl border border-white/[0.12] bg-[#141418] px-2.5 sm:px-3 py-1.5 text-xs font-medium text-white hover:border-white/20 transition-all shadow-sm"
+                className="flex items-center gap-1.5 sm:gap-2 whitespace-nowrap rounded-xl border border-white/[0.12] bg-[#141418] px-2.5 sm:px-3 py-1.5 text-xs font-medium text-white hover:border-white/20 transition-all shadow-sm"
               >
                 {farcasterUser?.pfpUrl ? (
                   <img
@@ -223,8 +204,8 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
                   {farcasterUser?.username ? `@${farcasterUser.username}` : formatAddress(address)}
                 </span>
                 {balanceData && (
-                  <span className="hidden sm:inline border-l border-white/10 pl-2 text-emerald-400 font-semibold">
-                    ${formatUSDC(balanceData.value)} USDC
+                  <span className="hidden sm:inline border-l border-white/10 pl-2 text-emerald-400 font-semibold font-mono">
+                    ${formatUSDC(balanceData.value)}
                   </span>
                 )}
                 <ChevronDown className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
@@ -250,12 +231,15 @@ export function Navbar({ onOpenAiAssistant }: NavbarProps) {
                         </div>
                       </div>
                     )}
-                    <p className="text-[11px] text-zinc-400">Connected Wallet</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] text-zinc-400">Connected Wallet</p>
+                      <span className="text-[10px] font-mono text-emerald-400">Arc (5042)</span>
+                    </div>
                     <p className="font-mono text-xs font-semibold text-white truncate mt-0.5">{address}</p>
                     <div className="mt-2 flex items-center justify-between rounded-lg bg-black/40 p-2 text-xs">
-                      <span className="text-zinc-400">Native USDC:</span>
+                      <span className="text-zinc-400">USDC Balance:</span>
                       <span className="font-semibold text-emerald-400 font-mono">
-                        ${balanceData ? formatUSDC(balanceData.value) : '0.00'}
+                        ${balanceData ? formatUSDC(balanceData.value) : '0.00'} USDC
                       </span>
                     </div>
                   </div>
