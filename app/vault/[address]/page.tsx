@@ -13,6 +13,7 @@ import { ensureArcNetwork } from '@/lib/switchNetwork';
 import { GSCOOP_VAULT_ABI } from '@/lib/contracts';
 import { triggerConfetti } from '@/components/ConfettiCelebration';
 import { useFarcaster } from '@/components/FarcasterProvider';
+import { resolveFarcasterProfiles, FarcasterMemberProfile } from '@/lib/farcasterProfiles';
 import Link from 'next/link';
 import { 
   Clock, 
@@ -49,7 +50,7 @@ export default function VaultDashboardPage() {
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
-  const { shareCast } = useFarcaster();
+  const { shareCast, user: farcasterUser } = useFarcaster();
 
   const isWrongNetwork = isConnected && chainId !== arcMainnet.id;
   const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
@@ -61,6 +62,7 @@ export default function VaultDashboardPage() {
   };
 
   const [vault, setVault] = useState<CoopVaultData | null>(null);
+  const [memberProfiles, setMemberProfiles] = useState<Record<string, FarcasterMemberProfile>>({});
   const [copied, setCopied] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [isDepositing, setIsDepositing] = useState(false);
@@ -152,6 +154,28 @@ export default function VaultDashboardPage() {
   useEffect(() => {
     loadVaultData();
   }, [vaultAddress, userAddress]);
+
+  // Resolve Farcaster usernames & avatars for members in the queue
+  useEffect(() => {
+    if (!vault?.members || vault.members.length === 0) return;
+    let active = true;
+    resolveFarcasterProfiles(vault.members).then((profiles) => {
+      if (!active) return;
+      const merged = { ...profiles };
+      if (userAddress && farcasterUser?.username) {
+        merged[userAddress.toLowerCase()] = {
+          address: userAddress.toLowerCase(),
+          username: farcasterUser.username,
+          displayName: farcasterUser.displayName || farcasterUser.username,
+          pfpUrl: farcasterUser.pfpUrl,
+        };
+      }
+      setMemberProfiles(merged);
+    });
+    return () => {
+      active = false;
+    };
+  }, [vault?.members, userAddress, farcasterUser]);
 
   // Real-time Countdown timer
   const [timeInfo, setTimeInfo] = useState<{ formatted: string; isExpired: boolean; secondsRemaining: number }>({
@@ -2281,54 +2305,87 @@ export default function VaultDashboardPage() {
                 </div>
               ) : (
                 vault.members.map((member, index) => {
+                  const lowerMember = member.toLowerCase();
                   const isCurrentTurn = index === Number(vault.currentCycle) % vault.members.length;
-                  const isUser = userAddress && member.toLowerCase() === userAddress.toLowerCase();
+                  const isUser = userAddress && lowerMember === userAddress.toLowerCase();
                   const pastTurn = index < Number(vault.currentCycle) % vault.members.length;
-                  const memberDebt = vault.activeDebts?.[member.toLowerCase()]
-                    ? BigInt(vault.activeDebts[member.toLowerCase()])
+                  const memberDebt = vault.activeDebts?.[lowerMember]
+                    ? BigInt(vault.activeDebts[lowerMember])
                     : BigInt(0);
+                  const hasPaidCurrentCycle =
+                    Boolean(vault.cyclePaidMembers?.[lowerMember]) ||
+                    Boolean(isUser && hasUserDepositedForCycle);
+                  const fcProfile = memberProfiles[lowerMember];
 
                   return (
                     <div
                       key={member + index}
-                      className={`flex items-center justify-between rounded-2xl p-3.5 border transition-all ${
+                      className={`flex items-center justify-between gap-2 rounded-2xl p-3.5 border transition-all ${
                         isCurrentTurn
                           ? 'border-emerald-400/50 bg-gradient-to-r from-emerald-950/40 to-teal-950/20 shadow-lg shadow-emerald-500/5'
                           : 'border-white/[0.06] bg-[#0c0c0f]'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-mono font-bold ${
-                            isCurrentTurn
-                              ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
-                              : 'bg-white/[0.06] text-zinc-400'
-                          }`}
-                        >
-                          #{index + 1}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="relative shrink-0">
+                          {fcProfile?.pfpUrl ? (
+                            <img
+                              src={fcProfile.pfpUrl}
+                              alt={fcProfile.username}
+                              className={`h-8 w-8 rounded-xl object-cover border ${
+                                isCurrentTurn ? 'border-emerald-400' : 'border-white/10'
+                              }`}
+                            />
+                          ) : (
+                            <div
+                              className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-mono font-bold ${
+                                isCurrentTurn
+                                  ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                                  : 'bg-white/[0.06] text-zinc-400'
+                              }`}
+                            >
+                              #{index + 1}
+                            </div>
+                          )}
+                          {fcProfile?.pfpUrl && (
+                            <span className="absolute -bottom-1 -right-1 rounded-md bg-black/90 border border-white/15 px-1 text-[9px] font-mono font-bold text-emerald-400">
+                              #{index + 1}
+                            </span>
+                          )}
                         </div>
 
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-xs font-semibold text-white">
-                              {formatAddress(member, 5)}
-                            </span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {fcProfile ? (
+                              <>
+                                <span className="text-xs font-bold text-purple-300 truncate">
+                                  @{fcProfile.username}
+                                </span>
+                                <span className="font-mono text-[11px] text-zinc-400">
+                                  ({formatAddress(member, 4)})
+                                </span>
+                              </>
+                            ) : (
+                              <span className="font-mono text-xs font-semibold text-white">
+                                {formatAddress(member, 5)}
+                              </span>
+                            )}
                             {isUser && (
                               <span className="rounded bg-white/[0.1] px-1.5 py-0.2 text-[10px] text-zinc-200">
                                 You
                               </span>
                             )}
                             {isCurrentTurn && (
-                              <Crown className="h-3.5 w-3.5 text-emerald-400 animate-bounce" />
+                              <Crown className="h-3.5 w-3.5 text-emerald-400 animate-bounce shrink-0" />
                             )}
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex flex-wrap items-center gap-2 mt-0.5">
                             <span className="text-[10px] text-zinc-400">
                               {isCurrentTurn
                                 ? 'Active Beneficiary'
                                 : pastTurn
-                                ? 'Claimed in earlier cycle'
-                                : `Scheduled for Turn #${index + 1}`}
+                                ? 'Received Pot Earlier'
+                                : `Turn #${index + 1}`}
                             </span>
                             {memberDebt > BigInt(0) && (
                               <span className="text-[10px] font-mono text-amber-400 font-semibold">
@@ -2339,18 +2396,22 @@ export default function VaultDashboardPage() {
                         </div>
                       </div>
 
-                      <div>
-                        {isCurrentTurn ? (
-                          <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                            Current Turn
-                          </span>
-                        ) : pastTurn ? (
-                          <span className="flex items-center gap-1 text-[11px] text-zinc-400">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500/70" />
-                            <span>Paid</span>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {hasPaidCurrentCycle ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                            <span>Paid C#{vault.currentCycle.toString()}</span>
                           </span>
                         ) : (
-                          <span className="text-[11px] font-mono text-zinc-400">Scheduled</span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-300/90">
+                            <Clock className="h-2.5 w-2.5" />
+                            <span>Pending C#{vault.currentCycle.toString()}</span>
+                          </span>
+                        )}
+                        {isCurrentTurn && (
+                          <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-400">
+                            Current Turn
+                          </span>
                         )}
                       </div>
                     </div>

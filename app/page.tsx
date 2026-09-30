@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { getStoredVaults } from '@/lib/vaultStore';
 import { fetchAllOnChainVaults, SHOWCASE_VAULT_ADDRESS } from '@/lib/onChainVaults';
+import { formatUSDC } from '@/lib/utils';
 import { VaultCard } from '@/components/VaultCard';
 import { useEffect, useState } from 'react';
 
@@ -48,6 +49,28 @@ export default function Home() {
       isMounted = false;
     };
   }, []);
+
+  const heroVault = featuredVaults[0];
+  const heroName = heroVault?.name || 'Arc Global Synergy Alpha';
+  const heroSpots = heroVault
+    ? Number(heroVault.maxMembers) > 0
+      ? Number(heroVault.maxMembers)
+      : Math.max(Number(heroVault.memberCount), 5)
+    : 5;
+  const heroContribution = heroVault ? formatUSDC(heroVault.contributionAmount) : '10.00';
+  const heroPot = heroVault
+    ? formatUSDC(heroVault.contributionAmount * BigInt(heroSpots))
+    : '50.00';
+  const heroAddress = heroVault?.address || SHOWCASE_VAULT_ADDRESS;
+  const heroSpot1 = heroVault?.members?.[0]
+    ? `${heroVault.members[0].slice(0, 6)}...`
+    : '0x6268...';
+  const heroSpot2 = heroVault?.members?.[1]
+    ? `${heroVault.members[1].slice(0, 6)}...`
+    : 'Open';
+  const heroSpot3 = heroVault?.members?.[2]
+    ? `${heroVault.members[2].slice(0, 6)}...`
+    : 'Open';
 
   return (
     <div className="relative overflow-hidden">
@@ -147,16 +170,18 @@ export default function Home() {
                 <div>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-zinc-400">Deployed Vault</span>
-                    <span className="text-xs text-emerald-400 font-mono">Chain ID: 5042</span>
+                    <span className="text-xs text-emerald-400 font-mono">
+                      {heroVault ? `Cycle #${heroVault.currentCycle.toString()} • Chain 5042` : 'Chain ID: 5042'}
+                    </span>
                   </div>
-                  <h3 className="text-lg sm:text-xl font-bold text-white mt-0.5">Arc Global Synergy Alpha</h3>
+                  <h3 className="text-lg sm:text-xl font-bold text-white mt-0.5 truncate">{heroName}</h3>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2.5 sm:gap-3 rounded-2xl bg-black/50 p-3.5 sm:p-4 border border-white/[0.06]">
                   <div>
                     <span className="text-[11px] text-zinc-400">Cycle Payout Pot</span>
-                    <p className="text-lg sm:text-xl font-extrabold text-emerald-400 font-mono mt-0.5">$250.00</p>
-                    <span className="text-[10px] text-zinc-400">5 spots × $50 USDC</span>
+                    <p className="text-lg sm:text-xl font-extrabold text-emerald-400 font-mono mt-0.5">${heroPot}</p>
+                    <span className="text-[10px] text-zinc-400">{heroSpots} spots × ${heroContribution} USDC</span>
                   </div>
                   <div>
                     <span className="text-[11px] text-zinc-400">Estimated Gas Fee</span>
@@ -169,29 +194,31 @@ export default function Home() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs text-zinc-400">
                     <span>Queue Rotation</span>
-                    <span className="text-emerald-400 font-medium">Verified On-Chain</span>
+                    <span className="text-emerald-400 font-medium">
+                      {heroVault ? `${heroVault.memberCount.toString()}/${heroSpots} Enrolled On-Chain` : 'Verified On-Chain'}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <div className="flex-1 min-w-0 rounded-xl bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 border border-emerald-400/50 p-2 sm:p-2.5 text-center shadow-lg shadow-emerald-500/10">
                       <span className="block text-[9px] sm:text-[10px] text-emerald-300 font-semibold truncate">Turn #1</span>
-                      <span className="block font-mono text-[11px] sm:text-xs text-emerald-300 font-bold truncate">0x6268...</span>
+                      <span className="block font-mono text-[11px] sm:text-xs text-emerald-300 font-bold truncate">{heroSpot1}</span>
                     </div>
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
                     <div className="flex-1 min-w-0 rounded-xl bg-white/[0.03] border border-white/[0.06] p-2 sm:p-2.5 text-center">
                       <span className="block text-[9px] sm:text-[10px] text-zinc-400 truncate">Spot #2</span>
-                      <span className="block font-mono text-[11px] sm:text-xs text-zinc-400 truncate">Open</span>
+                      <span className="block font-mono text-[11px] sm:text-xs text-zinc-400 truncate">{heroSpot2}</span>
                     </div>
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
                     <div className="flex-1 min-w-0 rounded-xl bg-white/[0.03] border border-white/[0.06] p-2 sm:p-2.5 text-center">
                       <span className="block text-[9px] sm:text-[10px] text-zinc-400 truncate">Spot #3</span>
-                      <span className="block font-mono text-[11px] sm:text-xs text-zinc-400 truncate">Open</span>
+                      <span className="block font-mono text-[11px] sm:text-xs text-zinc-400 truncate">{heroSpot3}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="pt-2 sm:pt-3">
                   <Link
-                    href={`/vault/${SHOWCASE_VAULT_ADDRESS}`}
+                    href={`/vault/${heroAddress}`}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-2.5 text-xs font-semibold text-black hover:opacity-95 transition-all shadow-md shadow-emerald-500/20"
                   >
                     <span>Enter Live Showcase Vault</span>

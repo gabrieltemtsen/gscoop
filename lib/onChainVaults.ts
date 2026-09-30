@@ -29,27 +29,54 @@ export async function fetchOnChainCoopAddresses(): Promise<`0x${string}`[]> {
 
 /**
  * Fetch complete live on-chain state for a specific cooperative vault on Arc Mainnet.
+ * Uses parallel Promise.all calls for 5x faster loading.
  */
-export async function fetchOnChainVault(vaultAddress: `0x${string}`): Promise<CoopVaultData | null> {
+export async function fetchOnChainVault(
+  vaultAddress: `0x${string}`,
+  includeMemberDetails = true
+): Promise<CoopVaultData | null> {
   try {
-    // 1. Read primary state tuple
-    const stateResult = (await publicClient.readContract({
-      address: vaultAddress,
-      abi: GSCOOP_VAULT_ABI,
-      functionName: 'getVaultState',
-    })) as [
-      string,  // vaultName
-      bigint,  // contributionAmount
-      bigint,  // cycleDuration
-      bigint,  // cycleDeadline
-      bigint,  // currentCycle
-      bigint,  // balance
-      bigint,  // memberCount
-      bigint,  // cycleDeposits
-      `0x${string}`, // currentBeneficiaryAddress
-      bigint,  // vaultReserve
-      bigint   // currentDiscountBid
-    ];
+    const [
+      stateResult,
+      membersResult,
+      creatorResult,
+      maxMembersResult,
+      yieldEnabledResult,
+    ] = await Promise.all([
+      publicClient.readContract({
+        address: vaultAddress,
+        abi: GSCOOP_VAULT_ABI,
+        functionName: 'getVaultState',
+      }),
+      publicClient
+        .readContract({
+          address: vaultAddress,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'getMembers',
+        })
+        .catch(() => [] as `0x${string}`[]),
+      publicClient
+        .readContract({
+          address: vaultAddress,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'creator',
+        })
+        .catch(() => '0x6268689797cA15256AF2ce922836cd69940FA024' as `0x${string}`),
+      publicClient
+        .readContract({
+          address: vaultAddress,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'maxMembers',
+        })
+        .catch(() => BigInt(5)),
+      publicClient
+        .readContract({
+          address: vaultAddress,
+          abi: GSCOOP_VAULT_ABI,
+          functionName: 'yieldEnabled',
+        })
+        .catch(() => true),
+    ]);
 
     const [
       vaultName,
@@ -58,60 +85,83 @@ export async function fetchOnChainVault(vaultAddress: `0x${string}`): Promise<Co
       cycleDeadline,
       currentCycle,
       balance,
-      rawMemberCount,
+      ,
       cycleDeposits,
       currentBeneficiaryAddress,
       vaultReserve,
       currentDiscountBid,
-    ] = stateResult;
+    ] = stateResult as [
+      string,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      `0x${string}`,
+      bigint,
+      bigint
+    ];
 
-    // 2. Read enrolled member queue
-    let members: `0x${string}`[] = [];
-    try {
-      members = (await publicClient.readContract({
-        address: vaultAddress,
-        abi: GSCOOP_VAULT_ABI,
-        functionName: 'getMembers',
-      })) as `0x${string}`[];
-    } catch (e) {
-      console.warn('Failed to read getMembers:', e);
-    }
+    const members = (membersResult as `0x${string}`[]) || [];
+    const creatorAddress = (creatorResult as `0x${string}`) || '0x6268689797cA15256AF2ce922836cd69940FA024';
+    const maxMembers = (maxMembersResult as bigint) || BigInt(5);
+    const yieldEnabled = Boolean(yieldEnabledResult);
 
-    // 3. Read creator and max members
-    let creatorAddress: `0x${string}` = '0x6268689797cA15256AF2ce922836cd69940FA024';
-    let maxMembers = BigInt(5);
-    let yieldEnabled = true;
-
-    try {
-      creatorAddress = (await publicClient.readContract({
-        address: vaultAddress,
-        abi: GSCOOP_VAULT_ABI,
-        functionName: 'creator',
-      })) as `0x${string}`;
-    } catch {}
-
-    try {
-      maxMembers = (await publicClient.readContract({
-        address: vaultAddress,
-        abi: GSCOOP_VAULT_ABI,
-        functionName: 'maxMembers',
-      })) as bigint;
-    } catch {}
-
-    try {
-      yieldEnabled = (await publicClient.readContract({
-        address: vaultAddress,
-        abi: GSCOOP_VAULT_ABI,
-        functionName: 'yieldEnabled',
-      })) as boolean;
-    } catch {}
-
-    const isBeneficiaryZero = currentBeneficiaryAddress === '0x0000000000000000000000000000000000000000';
+    const isBeneficiaryZero =
+      currentBeneficiaryAddress === '0x0000000000000000000000000000000000000000';
     const computedBeneficiary = !isBeneficiaryZero
       ? currentBeneficiaryAddress
       : members.length > 0
       ? members[Number(currentCycle) % members.length]
       : creatorAddress;
+
+    const cyclePaidMembers: Record<string, boolean> = {};
+    const activeDebts: Record<string, string> = {};
+    const advanceBalances: Record<string, string> = {};
+    const boosterBalances: Record<string, string> = {};
+    const memberShares: Record<string, number> = {};
+    let totalBoosterSavings = BigInt(0);
+
+    // Fetch per-member deposit status & financials in parallel for unique enrolled members
+    const uniqueMembers = Array.from(new Set(members.map((m) => m.toLowerCase()))) as `0x${string}`[];
+    if (includeMemberDetails && uniqueMembers.length > 0 && uniqueMembers.length <= 30) {
+      await Promise.all(
+        uniqueMembers.map(async (memberAddr) => {
+          const [paid, financials] = await Promise.all([
+            publicClient
+              .readContract({
+                address: vaultAddress,
+                abi: GSCOOP_VAULT_ABI,
+                functionName: 'hasMemberDeposited',
+                args: [currentCycle, memberAddr],
+              })
+              .catch(() => false),
+            publicClient
+              .readContract({
+                address: vaultAddress,
+                abi: GSCOOP_VAULT_ABI,
+                functionName: 'getMemberFinancials',
+                args: [memberAddr],
+              })
+              .catch(() => null),
+          ]);
+
+          cyclePaidMembers[memberAddr] = Boolean(paid);
+          if (financials) {
+            const [debt, advance, booster, shares] = financials as [bigint, bigint, bigint, bigint];
+            if (debt > BigInt(0)) activeDebts[memberAddr] = debt.toString();
+            if (advance > BigInt(0)) advanceBalances[memberAddr] = advance.toString();
+            if (booster > BigInt(0)) {
+              boosterBalances[memberAddr] = booster.toString();
+              totalBoosterSavings += booster;
+            }
+            memberShares[memberAddr] = Number(shares) > 0 ? Number(shares) : 1;
+          }
+        })
+      );
+    }
 
     const data: CoopVaultData = {
       address: vaultAddress,
@@ -133,10 +183,16 @@ export async function fetchOnChainVault(vaultAddress: `0x${string}`): Promise<Co
       yieldApy: 5.2,
       accruedYield: BigInt(0),
       reserveFund: vaultReserve || BigInt(0),
-      currentHighestBid: currentDiscountBid > BigInt(0)
-        ? { bidder: computedBeneficiary, discountAmount: currentDiscountBid }
-        : null,
-      activeDebts: {},
+      currentHighestBid:
+        currentDiscountBid > BigInt(0)
+          ? { bidder: computedBeneficiary, discountAmount: currentDiscountBid }
+          : null,
+      activeDebts,
+      advanceBalances,
+      boosterBalances,
+      memberShares,
+      totalBoosterSavings,
+      cyclePaidMembers,
     };
 
     return data;
@@ -147,7 +203,7 @@ export async function fetchOnChainVault(vaultAddress: `0x${string}`): Promise<Co
 }
 
 /**
- * Fetch user-specific financial status in a vault directly on-chain.
+ * Fetch user-specific financial status in a vault directly on-chain in parallel.
  */
 export async function fetchUserOnChainStatus(
   vaultAddress: `0x${string}`,
@@ -161,44 +217,49 @@ export async function fetchUserOnChainStatus(
   shares: number;
   autoSave: AutoSaveMandateData | null;
 }> {
-  let hasDeposited = false;
+  const [hasDepositedRes, finRes, autoRes] = await Promise.all([
+    publicClient
+      .readContract({
+        address: vaultAddress,
+        abi: GSCOOP_VAULT_ABI,
+        functionName: 'hasMemberDeposited',
+        args: [currentCycle, userAddress],
+      })
+      .catch(() => false),
+    publicClient
+      .readContract({
+        address: vaultAddress,
+        abi: GSCOOP_VAULT_ABI,
+        functionName: 'getMemberFinancials',
+        args: [userAddress],
+      })
+      .catch(() => null),
+    publicClient
+      .readContract({
+        address: vaultAddress,
+        abi: GSCOOP_VAULT_ABI,
+        functionName: 'getAutoSaveStatus',
+        args: [userAddress],
+      })
+      .catch(() => null),
+  ]);
+
   let debt = BigInt(0);
   let advance = BigInt(0);
   let booster = BigInt(0);
   let shares = 1;
   let autoSave: AutoSaveMandateData | null = null;
 
-  try {
-    hasDeposited = (await publicClient.readContract({
-      address: vaultAddress,
-      abi: GSCOOP_VAULT_ABI,
-      functionName: 'hasMemberDeposited',
-      args: [currentCycle, userAddress],
-    })) as boolean;
-  } catch {}
-
-  try {
-    const fin = (await publicClient.readContract({
-      address: vaultAddress,
-      abi: GSCOOP_VAULT_ABI,
-      functionName: 'getMemberFinancials',
-      args: [userAddress],
-    })) as [bigint, bigint, bigint, bigint];
-
+  if (finRes) {
+    const fin = finRes as [bigint, bigint, bigint, bigint];
     debt = fin[0];
     advance = fin[1];
     booster = fin[2];
     shares = Number(fin[3]) > 0 ? Number(fin[3]) : 1;
-  } catch {}
+  }
 
-  try {
-    const auto = (await publicClient.readContract({
-      address: vaultAddress,
-      abi: GSCOOP_VAULT_ABI,
-      functionName: 'getAutoSaveStatus',
-      args: [userAddress],
-    })) as [boolean, bigint, bigint, bigint, bigint];
-
+  if (autoRes) {
+    const auto = autoRes as [boolean, bigint, bigint, bigint, bigint];
     if (auto && auto[0]) {
       autoSave = {
         isActive: auto[0],
@@ -208,24 +269,24 @@ export async function fetchUserOnChainStatus(
         prefundedStash: auto[4],
       };
     }
-  } catch {}
+  }
 
-  return { hasDeposited, debt, advance, booster, shares, autoSave };
+  return {
+    hasDeposited: Boolean(hasDepositedRes),
+    debt,
+    advance,
+    booster,
+    shares,
+    autoSave,
+  };
 }
 
 /**
- * Fetch all registered on-chain cooperative vaults from Arc Mainnet.
+ * Fetch all registered on-chain cooperative vaults from Arc Mainnet in parallel.
  */
 export async function fetchAllOnChainVaults(): Promise<CoopVaultData[]> {
   const addresses = await fetchOnChainCoopAddresses();
-  const results: CoopVaultData[] = [];
-
-  for (const addr of addresses) {
-    const v = await fetchOnChainVault(addr);
-    if (v) {
-      results.push(v);
-    }
-  }
-
-  return results;
+  const vaults = await Promise.all(addresses.map((addr) => fetchOnChainVault(addr, true)));
+  return vaults.filter((v): v is CoopVaultData => v !== null);
 }
+

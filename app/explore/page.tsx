@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useAccount } from 'wagmi';
 import { getStoredVaults, CoopVaultData } from '@/lib/vaultStore';
 import { fetchAllOnChainVaults } from '@/lib/onChainVaults';
 import { FACTORY_ADDRESS } from '@/lib/contracts';
@@ -17,15 +18,18 @@ import {
   Zap,
   TrendingUp,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  CheckCircle2,
+  UserCheck
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ExplorePage() {
+  const { address: userAddress } = useAccount();
   const [vaults, setVaults] = useState<CoopVaultData[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [tierFilter, setTierFilter] = useState<'all' | 'micro' | 'standard' | 'high'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'payout_ready'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'my_circles' | 'active' | 'payout_ready'>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadVaults = async () => {
@@ -51,6 +55,29 @@ export default function ExplorePage() {
     loadVaults();
   }, []);
 
+  const myVaults = useMemo(() => {
+    if (!userAddress) return [];
+    const lower = userAddress.toLowerCase();
+    return vaults.filter((v) => v.members.some((m) => m.toLowerCase() === lower));
+  }, [vaults, userAddress]);
+
+  const myUnpaidCount = useMemo(() => {
+    if (!userAddress) return 0;
+    const lower = userAddress.toLowerCase();
+    return myVaults.filter((v) => !v.cyclePaidMembers?.[lower]).length;
+  }, [myVaults, userAddress]);
+
+  const myExtraSavingsUSDC = useMemo(() => {
+    if (!userAddress) return 0;
+    const lower = userAddress.toLowerCase();
+    return myVaults.reduce((acc, v) => {
+      const adv = BigInt(v.advanceBalances?.[lower] || 0);
+      const bst = BigInt(v.boosterBalances?.[lower] || 0);
+      const lp = BigInt(v.memberShares?.[lower] || 0);
+      return acc + Number(formatUnits(adv + bst + lp, 18));
+    }, 0);
+  }, [myVaults, userAddress]);
+
   const filteredVaults = useMemo(() => {
     return vaults.filter((v) => {
       // Search filter
@@ -65,17 +92,23 @@ export default function ExplorePage() {
       if (tierFilter === 'standard' && (amountUSD < 25 || amountUSD > 100)) return false;
       if (tierFilter === 'high' && amountUSD <= 100) return false;
 
-      // Status filter
-      const now = Math.floor(Date.now() / 1000);
-      const isPayoutReady =
-        now >= Number(v.cycleDeadline) || (v.memberCount > 0 && v.cycleDeposits >= v.memberCount);
+      // Status & My Circles filter
+      if (statusFilter === 'my_circles') {
+        if (!userAddress) return false;
+        const isMember = v.members.some((m) => m.toLowerCase() === userAddress.toLowerCase());
+        if (!isMember) return false;
+      } else {
+        const now = Math.floor(Date.now() / 1000);
+        const isPayoutReady =
+          now >= Number(v.cycleDeadline) || (v.memberCount > 0 && v.cycleDeposits >= v.memberCount);
 
-      if (statusFilter === 'active' && isPayoutReady) return false;
-      if (statusFilter === 'payout_ready' && !isPayoutReady) return false;
+        if (statusFilter === 'active' && isPayoutReady) return false;
+        if (statusFilter === 'payout_ready' && !isPayoutReady) return false;
+      }
 
       return true;
     });
-  }, [vaults, searchQuery, tierFilter, statusFilter]);
+  }, [vaults, searchQuery, tierFilter, statusFilter, userAddress]);
 
   // Aggregate stats
   const totalVolumeUSDC = useMemo(() => {
@@ -133,6 +166,46 @@ export default function ExplorePage() {
           </Link>
         </div>
       </div>
+
+      {/* Connected Member Portfolio Summary Banner */}
+      {userAddress && myVaults.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 rounded-2xl border border-emerald-500/25 bg-gradient-to-r from-emerald-950/30 via-[#121417] to-cyan-950/20 p-3.5 sm:p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+              <UserCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs sm:text-sm font-bold text-white">Your Cooperative Portfolio</h2>
+                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                  {myVaults.length} {myVaults.length === 1 ? 'Circle' : 'Circles'}
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                {myUnpaidCount > 0
+                  ? `You have ${myUnpaidCount} cycle contribution${myUnpaidCount > 1 ? 's' : ''} due across your enrolled circles.`
+                  : 'All current cycle contributions are paid and up to date.'}
+                {myExtraSavingsUSDC > 0 && (
+                  <span className="ml-1.5 text-cyan-300 font-semibold font-mono">
+                    • +${myExtraSavingsUSDC.toFixed(2)} USDC in Extra Vault Savings
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'my_circles' ? 'all' : 'my_circles')}
+            className={`shrink-0 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+              statusFilter === 'my_circles'
+                ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                : 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+            }`}
+          >
+            {statusFilter === 'my_circles' ? 'Showing My Circles ✓' : `Filter My Circles (${myVaults.length})`}
+          </button>
+        </div>
+      )}
 
       {/* Network Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -212,7 +285,7 @@ export default function ExplorePage() {
 
           {/* Status filter */}
           <div className="flex items-center overflow-x-auto no-scrollbar rounded-xl bg-[#0c0c0e] p-1 border border-white/[0.08] max-w-full">
-            {(['all', 'active', 'payout_ready'] as const).map((status) => (
+            {(['all', 'my_circles', 'active', 'payout_ready'] as const).map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
@@ -222,7 +295,13 @@ export default function ExplorePage() {
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                {status === 'all' ? 'All Status' : status === 'active' ? 'Active' : 'Payout Ready'}
+                {status === 'all'
+                  ? 'All Pools'
+                  : status === 'my_circles'
+                  ? `My Circles${myVaults.length > 0 ? ` (${myVaults.length})` : ''}`
+                  : status === 'active'
+                  ? 'Active'
+                  : 'Payout Ready'}
               </button>
             ))}
           </div>

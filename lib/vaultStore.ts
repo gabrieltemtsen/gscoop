@@ -44,6 +44,8 @@ export interface CoopVaultData {
   totalBoosterSavings?: bigint;
   // Recurring Auto-Save Subscriptions
   autoSaveMandates?: Record<string, AutoSaveMandateData>;
+  // Per-member deposit status for current cycle
+  cyclePaidMembers?: Record<string, boolean>;
 }
 
 const DEFAULT_VAULTS: CoopVaultData[] = [

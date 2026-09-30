@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useAccount } from 'wagmi';
 import { CoopVaultData } from '@/lib/vaultStore';
 import { formatAddress, formatDuration, formatTimeRemaining, formatUSDC } from '@/lib/utils';
 import { Clock, Users, ArrowRight, ShieldCheck, Sparkles, CheckCircle2, Zap, Coins } from 'lucide-react';
@@ -11,6 +12,7 @@ interface VaultCardProps {
 }
 
 export function VaultCard({ vault }: VaultCardProps) {
+  const { address: userAddress } = useAccount();
   const [timeInfo, setTimeInfo] = useState(() => formatTimeRemaining(vault.cycleDeadline));
 
   useEffect(() => {
@@ -27,8 +29,22 @@ export function VaultCard({ vault }: VaultCardProps) {
   const isFull = vault.maxMembers > 0 && vault.memberCount >= vault.maxMembers;
   const isReadyForPayout = timeInfo.isExpired || (vault.memberCount > 0 && vault.cycleDeposits >= vault.memberCount);
 
+  const isEnrolled = Boolean(
+    userAddress && vault.members.some((m) => m.toLowerCase() === userAddress.toLowerCase())
+  );
+  const hasPaidCycle = Boolean(
+    userAddress && vault.cyclePaidMembers?.[userAddress.toLowerCase()]
+  );
+  const isUserBeneficiary = Boolean(
+    userAddress && vault.beneficiary.toLowerCase() === userAddress.toLowerCase()
+  );
+
   return (
-    <div className="group relative flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#121215] p-6 shadow-xl transition-all duration-300 hover:border-white/20 hover:bg-[#15151a] hover:shadow-2xl hover:shadow-emerald-500/5">
+    <div className={`group relative flex flex-col justify-between rounded-2xl border p-6 shadow-xl transition-all duration-300 hover:bg-[#15151a] hover:shadow-2xl hover:shadow-emerald-500/5 ${
+      isEnrolled
+        ? 'border-emerald-500/30 bg-[#121416] hover:border-emerald-400/50'
+        : 'border-white/[0.08] bg-[#121215] hover:border-white/20'
+    }`}>
       
       {/* Top Header & Status */}
       <div>
@@ -55,8 +71,29 @@ export function VaultCard({ vault }: VaultCardProps) {
           </span>
         </div>
 
-        {/* Feature Badges: Yield Float & Credit Availability */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        {/* Feature Badges: Member Status, Yield Float & Credit Availability */}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {isEnrolled && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 border border-emerald-500/35 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+              <CheckCircle2 className="h-3 w-3" />
+              <span>{isUserBeneficiary ? '★ Your Turn' : 'Enrolled'}</span>
+            </span>
+          )}
+          {isEnrolled && (
+            <span
+              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
+                hasPaidCycle
+                  ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
+                  : 'bg-amber-500/15 border-amber-500/35 text-amber-300'
+              }`}
+            >
+              <span>
+                {hasPaidCycle
+                  ? `✓ Paid C#${vault.currentCycle.toString()}`
+                  : `Due C#${vault.currentCycle.toString()}`}
+              </span>
+            </span>
+          )}
           {vault.yieldEnabled && (
             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
               <Zap className="h-3 w-3" />
@@ -155,9 +192,13 @@ export function VaultCard({ vault }: VaultCardProps) {
 
         <Link
           href={`/vault/${vault.address}`}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.08] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-white/[0.15] hover:text-emerald-300 transition-all group-hover:translate-x-0.5"
+          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all group-hover:translate-x-0.5 ${
+            isEnrolled && !hasPaidCycle
+              ? 'bg-emerald-500 text-black hover:bg-emerald-400 shadow-sm shadow-emerald-500/20'
+              : 'bg-white/[0.08] text-white hover:bg-white/[0.15] hover:text-emerald-300'
+          }`}
         >
-          <span>Enter Pool</span>
+          <span>{isEnrolled ? (hasPaidCycle ? 'Manage Circle' : 'Pay Cycle Due') : 'Enter Pool'}</span>
           <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>

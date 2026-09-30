@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { fetchOnChainVault } from '@/lib/onChainVaults';
+import { formatDuration, formatUSDC } from '@/lib/utils';
 
 const APP_URL = (
   process.env.NEXT_PUBLIC_APP_URL ||
@@ -14,11 +16,30 @@ export async function generateMetadata({
   const vaultUrl = `${APP_URL}/vault/${address}`;
   const shortAddr = `${address.slice(0, 6)}...${address.slice(-4)}`;
 
+  let vaultTitle = `Savings Circle (${shortAddr})`;
+  let vaultDesc = `Join this collaborative USDC savings circle (${shortAddr}) on Arc Mainnet.`;
+  let buttonTitle = 'Join Savings Circle';
+
+  try {
+    const vault = await fetchOnChainVault(address as `0x${string}`, false);
+    if (vault) {
+      const contrib = formatUSDC(vault.contributionAmount);
+      const freq = formatDuration(vault.cycleDuration);
+      vaultTitle = `${vault.name} ($${contrib} USDC / ${freq})`;
+      vaultDesc = `Join ${vault.name} on Arc Mainnet — $${contrib} USDC per ${freq} cycle (${vault.memberCount.toString()} members enrolled).`;
+      buttonTitle = `Join ($${contrib} USDC)`.slice(0, 32);
+    }
+  } catch {
+    // Fallback to default metadata
+  }
+
+  const dynamicOgUrl = `${APP_URL}/api/og/vault/${address}`;
+
   const miniAppEmbed = {
     version: '1',
-    imageUrl: `${APP_URL}/farcaster-embed.png`,
+    imageUrl: dynamicOgUrl,
     button: {
-      title: 'Join Savings Circle',
+      title: buttonTitle,
       action: {
         type: 'launch_miniapp',
         name: 'GScoop',
@@ -41,12 +62,12 @@ export async function generateMetadata({
   };
 
   return {
-    title: `Savings Circle (${shortAddr}) | GScoop on Arc`,
-    description: `Join this collaborative USDC savings circle (${shortAddr}) on Arc Mainnet.`,
+    title: `${vaultTitle} | GScoop on Arc`,
+    description: vaultDesc,
     openGraph: {
-      title: `GScoop Savings Circle (${shortAddr})`,
-      description: `Save and grow native USDC together on Arc Mainnet.`,
-      images: [`${APP_URL}/farcaster-og.png`],
+      title: vaultTitle,
+      description: vaultDesc,
+      images: [dynamicOgUrl],
     },
     other: {
       'fc:miniapp': JSON.stringify(miniAppEmbed),
