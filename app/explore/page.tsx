@@ -9,18 +9,17 @@ import { VaultCard } from '@/components/VaultCard';
 import { formatUnits } from 'viem';
 import { 
   Search, 
-  Filter, 
   Coins, 
   Layers, 
   Plus, 
-  Sparkles, 
   ShieldCheck, 
   Zap,
   TrendingUp,
   RefreshCw,
   ExternalLink,
+  UserCheck,
   CheckCircle2,
-  UserCheck
+  Filter
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -120,37 +119,38 @@ export default function ExplorePage() {
   }, [vaults]);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:py-12 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:py-12 sm:px-6 lg:px-8 space-y-8">
       
       {/* Top Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6 pb-5 sm:pb-6 border-b border-white/[0.08]">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-5 pb-6 border-b border-zinc-800/80">
         <div>
-          <div className="inline-flex flex-wrap items-center gap-1.5 sm:gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 sm:px-3 py-0.5 text-[11px] sm:text-xs font-semibold text-emerald-400 mb-2">
-            <span className="flex h-2 w-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/90 px-3 py-0.5 text-xs text-zinc-300 mb-2.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
             <span>Arc Mainnet Registry</span>
+            <span className="text-zinc-500">•</span>
             <a
               href={`https://explorer.arc.io/address/${FACTORY_ADDRESS}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] text-zinc-400 hover:text-white font-mono transition-colors"
+              className="inline-flex items-center gap-1 font-mono text-zinc-400 hover:text-white transition-colors"
             >
               <span>{FACTORY_ADDRESS.slice(0, 6)}...{FACTORY_ADDRESS.slice(-4)}</span>
-              <ExternalLink className="h-3 w-3" />
+              <ExternalLink className="h-2.5 w-2.5" />
             </a>
           </div>
-          <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Explore Cooperative Pools
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            Cooperative Circle Registry
           </h1>
-          <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-zinc-400 max-w-2xl leading-relaxed">
-            Browse verified collaborative savings circles operating on Arc Mainnet. Contribute exact USDC amounts with fractions of a cent network fees.
+          <p className="mt-1.5 text-xs sm:text-sm text-zinc-400 max-w-2xl leading-relaxed">
+            Browse and participate in verified rotating savings circles operating natively on Arc Mainnet. Settle in pure USDC with sub-cent gas overhead.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 sm:gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={loadVaults}
             disabled={isRefreshing}
-            className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-[#141418] px-3 sm:px-3.5 py-2 sm:py-2.5 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all"
+            className="flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-[#121216] px-3.5 py-2.5 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-zinc-800/80 transition-all"
             title="Refresh pool registry"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin text-emerald-400' : ''}`} />
@@ -159,35 +159,35 @@ export default function ExplorePage() {
 
           <Link
             href="/create"
-            className="flex flex-1 sm:flex-initial items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 sm:py-2.5 text-xs font-bold text-black shadow-lg shadow-emerald-500/20 hover:opacity-95 transition-all"
+            className="flex items-center justify-center gap-2 rounded-xl bg-white text-zinc-900 px-4 py-2.5 text-xs font-semibold hover:bg-zinc-200 transition-all shadow-sm"
           >
             <Plus className="h-4 w-4" />
-            <span>Deploy New Vault</span>
+            <span>Deploy Cooperative</span>
           </Link>
         </div>
       </div>
 
       {/* Connected Member Portfolio Summary Banner */}
       {userAddress && myVaults.length > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 rounded-2xl border border-emerald-500/25 bg-gradient-to-r from-emerald-950/30 via-[#121417] to-cyan-950/20 p-3.5 sm:p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-4 sm:p-5">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400">
               <UserCheck className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xs sm:text-sm font-bold text-white">Your Cooperative Portfolio</h2>
-                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                  {myVaults.length} {myVaults.length === 1 ? 'Circle' : 'Circles'}
+                <h2 className="text-xs sm:text-sm font-bold text-white">Your Circle Portfolio</h2>
+                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/25 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                  {myVaults.length} {myVaults.length === 1 ? 'Circle' : 'Circles'} Enrolled
                 </span>
               </div>
               <p className="text-[11px] text-zinc-400 mt-0.5">
                 {myUnpaidCount > 0
-                  ? `You have ${myUnpaidCount} cycle contribution${myUnpaidCount > 1 ? 's' : ''} due across your enrolled circles.`
-                  : 'All current cycle contributions are paid and up to date.'}
+                  ? `You have ${myUnpaidCount} cycle contribution${myUnpaidCount > 1 ? 's' : ''} currently due.`
+                  : 'All your cycle contributions are paid and current.'}
                 {myExtraSavingsUSDC > 0 && (
                   <span className="ml-1.5 text-cyan-300 font-semibold font-mono">
-                    • +${myExtraSavingsUSDC.toFixed(2)} USDC in Extra Vault Savings
+                    • +${myExtraSavingsUSDC.toFixed(2)} USDC in Extra Advance/Booster Reserves
                   </span>
                 )}
               </p>
@@ -196,60 +196,60 @@ export default function ExplorePage() {
 
           <button
             onClick={() => setStatusFilter(statusFilter === 'my_circles' ? 'all' : 'my_circles')}
-            className={`shrink-0 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+            className={`shrink-0 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all ${
               statusFilter === 'my_circles'
-                ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                ? 'bg-emerald-500 text-black shadow-sm'
                 : 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
             }`}
           >
-            {statusFilter === 'my_circles' ? 'Showing My Circles ✓' : `Filter My Circles (${myVaults.length})`}
+            {statusFilter === 'my_circles' ? 'Showing Enrolled Circles ✓' : `Filter Enrolled (${myVaults.length})`}
           </button>
         </div>
       )}
 
       {/* Network Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-3.5 sm:p-4">
-          <div className="flex items-center justify-between text-xs text-zinc-400">
-            <span>Total Pools</span>
-            <Layers className="h-4 w-4 text-emerald-400" />
+        <div className="rounded-2xl border border-zinc-800/80 bg-[#0e0e12] p-4">
+          <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
+            <span>Registered Pools</span>
+            <Layers className="h-4 w-4 text-zinc-400" />
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-white mt-1 font-mono">{vaults.length}</p>
-          <span className="text-[10px] sm:text-[11px] text-zinc-400">Active Arc cooperatives</span>
+          <p className="text-xl sm:text-2xl font-bold text-white mt-1 font-mono tabular-nums">{vaults.length}</p>
+          <span className="text-[11px] text-zinc-400">Active contracts on Arc</span>
         </div>
 
-        <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-3.5 sm:p-4">
-          <div className="flex items-center justify-between text-xs text-zinc-400">
-            <span>Pooled Liquidity</span>
+        <div className="rounded-2xl border border-zinc-800/80 bg-[#0e0e12] p-4">
+          <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
+            <span>Total Pooled Volume</span>
             <Coins className="h-4 w-4 text-emerald-400" />
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-emerald-400 mt-1 font-mono truncate">
+          <p className="text-xl sm:text-2xl font-bold text-white mt-1 font-mono tabular-nums truncate">
             ${totalVolumeUSDC.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </p>
-          <span className="text-[10px] sm:text-[11px] text-zinc-400">Locked in native USDC</span>
+          <span className="text-[11px] text-zinc-400">Native USDC locked</span>
         </div>
 
-        <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-3.5 sm:p-4">
-          <div className="flex items-center justify-between text-xs text-zinc-400">
-            <span>Coop Members</span>
+        <div className="rounded-2xl border border-zinc-800/80 bg-[#0e0e12] p-4">
+          <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
+            <span>Enrolled Participants</span>
             <TrendingUp className="h-4 w-4 text-cyan-400" />
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-white mt-1 font-mono">{totalMembers}</p>
-          <span className="text-[10px] sm:text-[11px] text-zinc-400">Participating wallets</span>
+          <p className="text-xl sm:text-2xl font-bold text-white mt-1 font-mono tabular-nums">{totalMembers}</p>
+          <span className="text-[11px] text-zinc-400">Unique group positions</span>
         </div>
 
-        <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-3.5 sm:p-4">
-          <div className="flex items-center justify-between text-xs text-zinc-400">
-            <span>Network Fee</span>
+        <div className="rounded-2xl border border-zinc-800/80 bg-[#0e0e12] p-4">
+          <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
+            <span>Average Network Fee</span>
             <Zap className="h-4 w-4 text-emerald-400" />
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-cyan-400 mt-1 font-mono">~$0.005</p>
-          <span className="text-[10px] sm:text-[11px] text-zinc-400">Paid in USDC gas</span>
+          <p className="text-xl sm:text-2xl font-bold text-emerald-400 mt-1 font-mono tabular-nums">~$0.005</p>
+          <span className="text-[11px] text-zinc-400">USDC protocol gas</span>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 rounded-2xl border border-white/[0.08] bg-[#121215] p-3 sm:p-4">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 rounded-2xl border border-zinc-800/80 bg-[#0e0e12] p-3 sm:p-4">
         
         {/* Search Input */}
         <div className="relative flex-1">
@@ -258,45 +258,45 @@ export default function ExplorePage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search cooperatives by name or 0x address..."
-            className="w-full rounded-xl border border-white/[0.08] bg-[#0c0c0e] pl-10 pr-4 py-2 text-xs sm:text-sm text-white placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+            placeholder="Search circles by name or contract address..."
+            className="w-full rounded-xl border border-zinc-800 bg-[#09090c] pl-10 pr-4 py-2 text-xs sm:text-sm text-white placeholder:text-zinc-500 focus:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-700 transition-all"
           />
         </div>
 
-        {/* Filters */}
+        {/* Filter Controls */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           
           {/* Tier filter */}
-          <div className="flex items-center overflow-x-auto no-scrollbar rounded-xl bg-[#0c0c0e] p-1 border border-white/[0.08] max-w-full">
+          <div className="flex items-center overflow-x-auto no-scrollbar rounded-xl bg-[#09090c] p-1 border border-zinc-800 max-w-full">
             {(['all', 'micro', 'standard', 'high'] as const).map((tier) => (
               <button
                 key={tier}
                 onClick={() => setTierFilter(tier)}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium capitalize whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 rounded-lg font-medium capitalize whitespace-nowrap transition-all ${
                   tierFilter === tier
-                    ? 'bg-emerald-500 text-black font-semibold shadow-sm'
+                    ? 'bg-zinc-800 text-white font-semibold'
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                {tier === 'all' ? 'All Tiers' : tier}
+                {tier === 'all' ? 'All Tiers' : tier === 'micro' ? '<$25' : tier === 'standard' ? '$25–$100' : '>$100'}
               </button>
             ))}
           </div>
 
           {/* Status filter */}
-          <div className="flex items-center overflow-x-auto no-scrollbar rounded-xl bg-[#0c0c0e] p-1 border border-white/[0.08] max-w-full">
+          <div className="flex items-center overflow-x-auto no-scrollbar rounded-xl bg-[#09090c] p-1 border border-zinc-800 max-w-full">
             {(['all', 'my_circles', 'active', 'payout_ready'] as const).map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all ${
                   statusFilter === status
-                    ? 'bg-white/[0.12] text-white font-semibold'
+                    ? 'bg-zinc-800 text-white font-semibold'
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
                 {status === 'all'
-                  ? 'All Pools'
+                  ? 'All Circles'
                   : status === 'my_circles'
                   ? `My Circles${myVaults.length > 0 ? ` (${myVaults.length})` : ''}`
                   : status === 'active'
@@ -317,21 +317,21 @@ export default function ExplorePage() {
           ))}
         </div>
       ) : (
-        <div className="rounded-3xl border border-dashed border-white/[0.12] bg-[#0c0c0f] p-12 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.04] text-zinc-400">
-            <Search className="h-6 w-6" />
+        <div className="rounded-2xl border border-zinc-800 bg-[#0e0e12] p-12 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-800/80 text-zinc-400">
+            <Search className="h-5 w-5" />
           </div>
-          <h3 className="text-lg font-semibold text-white mt-4">No matching pools found</h3>
+          <h3 className="text-base font-semibold text-white mt-4">No matching circles found</h3>
           <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto">
-            Try adjusting your search criteria or deploy the first cooperative in this tier.
+            Try adjusting your search criteria or deploy a new cooperative circle contract.
           </p>
           <div className="mt-6">
             <Link
               href="/create"
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2.5 text-xs font-bold text-black"
+              className="inline-flex items-center gap-2 rounded-xl bg-white text-zinc-900 px-4 py-2.5 text-xs font-semibold hover:bg-zinc-200 transition-all shadow-sm"
             >
               <Plus className="h-4 w-4" />
-              <span>Deploy New Cooperative</span>
+              <span>Deploy New Circle</span>
             </Link>
           </div>
         </div>

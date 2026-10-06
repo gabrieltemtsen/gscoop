@@ -7,18 +7,22 @@ import {
   ShieldCheck, 
   Zap, 
   Users, 
-  Sparkles, 
   CheckCircle2, 
-  TrendingUp, 
   Clock, 
-  Lock, 
   RefreshCw,
   Layers,
-  ChevronRight
+  ChevronRight,
+  TrendingUp,
+  ExternalLink,
+  ArrowUpRight,
+  Sliders,
+  DollarSign,
+  Lock
 } from 'lucide-react';
 import { getStoredVaults } from '@/lib/vaultStore';
 import { fetchAllOnChainVaults, SHOWCASE_VAULT_ADDRESS } from '@/lib/onChainVaults';
-import { formatUSDC } from '@/lib/utils';
+import { FACTORY_ADDRESS } from '@/lib/contracts';
+import { formatAddress, formatUSDC } from '@/lib/utils';
 import { VaultCard } from '@/components/VaultCard';
 import { useEffect, useState } from 'react';
 
@@ -63,165 +67,219 @@ export default function Home() {
     : '50.00';
   const heroAddress = heroVault?.address || SHOWCASE_VAULT_ADDRESS;
   const heroSpot1 = heroVault?.members?.[0]
-    ? `${heroVault.members[0].slice(0, 6)}...`
-    : '0x6268...';
+    ? formatAddress(heroVault.members[0])
+    : '0x6268...A024';
   const heroSpot2 = heroVault?.members?.[1]
-    ? `${heroVault.members[1].slice(0, 6)}...`
-    : 'Open';
+    ? formatAddress(heroVault.members[1])
+    : 'Queue Spot #2';
   const heroSpot3 = heroVault?.members?.[2]
-    ? `${heroVault.members[2].slice(0, 6)}...`
-    : 'Open';
+    ? formatAddress(heroVault.members[2])
+    : 'Queue Spot #3';
 
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative">
       
-      {/* Background Ambient Glows */}
-      <div className="pointer-events-none absolute -top-40 left-1/2 -z-10 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-gradient-to-b from-emerald-500/10 via-cyan-500/5 to-transparent blur-3xl" />
-      <div className="pointer-events-none absolute top-[450px] right-[-100px] -z-10 h-[400px] w-[500px] rounded-full bg-cyan-500/5 blur-3xl" />
+      {/* Top Protocol Status Ticker */}
+      <div className="border-b border-white/[0.06] bg-[#0c0c0f]/80 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl px-4 py-2 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-zinc-400">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5 font-medium text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Arc Mainnet (Chain 5042)
+              </span>
+              <span className="text-zinc-600 hidden sm:inline">•</span>
+              <span className="hidden sm:inline font-mono">Gas Asset: Native USDC</span>
+              <span className="text-zinc-600 hidden md:inline">•</span>
+              <span className="hidden md:inline">Finality: Sub-Second (&lt;1s)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-zinc-400">Factory:</span>
+              <a 
+                href={`https://explorer.arc.io/address/${FACTORY_ADDRESS}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-zinc-300 hover:text-emerald-400 transition-colors inline-flex items-center gap-1"
+              >
+                <span>{FACTORY_ADDRESS.slice(0, 6)}...{FACTORY_ADDRESS.slice(-4)}</span>
+                <ExternalLink className="h-2.5 w-2.5" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Hero Section */}
-      <section className="mx-auto max-w-7xl px-4 pt-6 pb-10 sm:pt-16 sm:pb-16 sm:px-6 lg:px-8 text-center sm:text-left">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+      <section className="mx-auto max-w-7xl px-4 pt-10 pb-16 sm:pt-20 sm:pb-24 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
           
-          <div className="lg:col-span-7 space-y-5 sm:space-y-6">
+          {/* Hero Left Content */}
+          <div className="lg:col-span-7 space-y-6">
             
-            {/* Tag Badge */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] sm:text-xs font-semibold text-emerald-400 backdrop-blur-md">
-              <span className="flex h-2 w-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Live on Arc Mainnet (Chain ID: 5042)</span>
+            {/* Pill Tag */}
+            <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/90 px-3.5 py-1 text-xs text-zinc-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              <span className="font-medium text-zinc-200">Decentralized Capital Formation</span>
+              <span className="text-zinc-500">•</span>
+              <span className="text-zinc-400">Rotating Liquidity Pools</span>
             </div>
 
-            {/* Headline */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.12]">
-              Decentralized <br className="hidden sm:inline" />
-              Cooperative Savings.{' '}
-              <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
-                Zero Gas Friction.
+            {/* Main Headline */}
+            <h1 className="text-3xl sm:text-5xl lg:text-[3.5rem] font-bold tracking-tight text-white leading-[1.12]">
+              Programmable Group Savings.{' '}
+              <span className="text-zinc-400 font-medium">
+                Deterministic Settlement on Arc.
               </span>
             </h1>
 
             {/* Sub-headline */}
-            <p className="text-sm sm:text-lg text-zinc-400 max-w-2xl mx-auto sm:mx-0 leading-relaxed">
-              Save in pure dollar amounts with your trusted circle on Arc Mainnet. Automated smart contract payouts with native USDC gas, float yield, and zero friction.
+            <p className="text-sm sm:text-base text-zinc-400 max-w-2xl leading-relaxed">
+              Eliminate treasurer default and manual spreadsheets. Pool recurring liquidity with trusted circles in native USDC with automated FIFO rotations, flexible liquidity advances, and sub-cent gas fees.
             </p>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 pt-1 sm:pt-2">
+            {/* CTA Group */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 pt-2">
               <Link
                 href="/explore"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-6 py-3 sm:py-3.5 text-sm font-semibold text-black shadow-lg shadow-emerald-500/25 hover:opacity-95 hover:scale-[1.01] active:scale-[0.99] transition-all"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-xs sm:text-sm font-semibold text-black hover:bg-zinc-200 transition-all shadow-sm"
               >
-                <span>Explore Live Pools</span>
+                <span>Explore Active Pools</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
 
               <Link
                 href="/create"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-[#141418] px-6 py-3 sm:py-3.5 text-sm font-semibold text-white hover:bg-white/[0.08] hover:border-white/25 transition-all"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-[#121216] px-5 py-3 text-xs sm:text-sm font-semibold text-zinc-200 hover:bg-zinc-800/80 hover:text-white transition-all"
               >
                 <Layers className="h-4 w-4 text-zinc-400" />
-                <span>Deploy a Cooperative</span>
+                <span>Deploy Circle Contract</span>
               </Link>
             </div>
 
-            {/* Zero Friction Highlights */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-5 sm:pt-6 border-t border-white/[0.08] text-left">
+            {/* Precision Metric Highlights */}
+            <div className="grid grid-cols-3 gap-3 sm:gap-6 pt-6 border-t border-zinc-800/80">
               <div>
-                <p className="text-[11px] sm:text-xs text-zinc-400">Gas Asset</p>
-                <p className="text-xs sm:text-sm font-bold text-white mt-0.5 flex items-center gap-1">
-                  <Coins className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                  <span className="truncate">Native USDC</span>
+                <p className="text-[11px] text-zinc-400 font-medium">Protocol Gas</p>
+                <p className="text-xs sm:text-sm font-bold text-white mt-0.5 flex items-center gap-1 font-mono">
+                  <Coins className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span>Native USDC</span>
                 </p>
+                <span className="text-[10px] text-zinc-400">Zero token bridging</span>
               </div>
               <div>
-                <p className="text-[11px] sm:text-xs text-zinc-400">Settlement</p>
-                <p className="text-xs sm:text-sm font-bold text-white mt-0.5 flex items-center gap-1">
-                  <Zap className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
-                  <span className="truncate">&lt;1 Second</span>
+                <p className="text-[11px] text-zinc-400 font-medium">Execution</p>
+                <p className="text-xs sm:text-sm font-bold text-white mt-0.5 flex items-center gap-1 font-mono">
+                  <Zap className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                  <span>&lt;1s Finality</span>
                 </p>
+                <span className="text-[10px] text-zinc-400">Deterministic speed</span>
               </div>
               <div>
-                <p className="text-[11px] sm:text-xs text-zinc-400">Security</p>
-                <p className="text-xs sm:text-sm font-bold text-emerald-400 mt-0.5 flex items-center gap-1">
+                <p className="text-[11px] text-zinc-400 font-medium">Custody</p>
+                <p className="text-xs sm:text-sm font-bold text-emerald-400 mt-0.5 flex items-center gap-1 font-mono">
                   <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">100% On-Chain</span>
+                  <span>100% On-Chain</span>
                 </p>
+                <span className="text-[10px] text-zinc-400">Non-custodial vaults</span>
               </div>
             </div>
           </div>
 
-          {/* Hero Live Visual Card */}
-          <div className="lg:col-span-5 text-left">
-            <div className="relative rounded-2xl sm:rounded-3xl border border-white/[0.12] bg-[#121216]/90 p-4 sm:p-6 shadow-2xl backdrop-blur-xl">
+          {/* Hero Right: Live Protocol Execution Terminal */}
+          <div className="lg:col-span-5">
+            <div className="relative rounded-2xl border border-zinc-800/90 bg-[#101014] p-5 sm:p-6 shadow-2xl backdrop-blur-xl">
               
-              {/* Card Badge */}
-              <div className="flex items-center justify-between gap-2 border-b border-white/[0.08] pb-3.5 sm:pb-4">
+              {/* Terminal Header */}
+              <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
                 <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0 rounded-full bg-emerald-400 animate-ping" />
-                  <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-emerald-400">
-                    Live Arc State Machine
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  <span className="text-[11px] font-semibold text-zinc-200 tracking-wide uppercase">
+                    Live Protocol Terminal
                   </span>
                 </div>
-                <span className="font-mono text-[10px] sm:text-xs text-zinc-400 shrink-0">Finality: Instant</span>
+                <span className="font-mono text-[11px] text-zinc-400">Chain ID: 5042</span>
               </div>
 
-              {/* Pool Simulation View */}
-              <div className="mt-4 sm:mt-5 space-y-3.5 sm:space-y-4">
+              {/* Pool Details */}
+              <div className="mt-4 space-y-4">
                 <div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-zinc-400">Deployed Vault</span>
-                    <span className="text-xs text-emerald-400 font-mono">
-                      {heroVault ? `Cycle #${heroVault.currentCycle.toString()} • Chain 5042` : 'Chain ID: 5042'}
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-zinc-400">Active Showcase Circle</span>
+                    <span className="text-emerald-400 font-mono text-[11px]">
+                      {heroVault ? `Cycle #${heroVault.currentCycle.toString()}` : 'Cycle #1'}
                     </span>
                   </div>
-                  <h3 className="text-lg sm:text-xl font-bold text-white mt-0.5 truncate">{heroName}</h3>
+                  <h3 className="text-base sm:text-lg font-bold text-white mt-0.5 truncate">{heroName}</h3>
+                  <p className="text-[11px] font-mono text-zinc-400 mt-0.5">{heroAddress}</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 rounded-2xl bg-black/50 p-3.5 sm:p-4 border border-white/[0.06]">
+                {/* Ledger Key Numbers */}
+                <div className="grid grid-cols-2 gap-3 rounded-xl bg-black/40 p-3.5 border border-zinc-800/80">
                   <div>
-                    <span className="text-[11px] text-zinc-400">Cycle Payout Pot</span>
-                    <p className="text-lg sm:text-xl font-extrabold text-emerald-400 font-mono mt-0.5">${heroPot}</p>
-                    <span className="text-[10px] text-zinc-400">{heroSpots} spots × ${heroContribution} USDC</span>
+                    <span className="text-[11px] text-zinc-400 font-medium">Target Cycle Pot</span>
+                    <p className="text-lg font-bold text-white font-mono tabular-nums mt-0.5">
+                      ${heroPot}{' '}
+                      <span className="text-xs font-normal text-zinc-400">USDC</span>
+                    </p>
+                    <span className="text-[10px] text-zinc-400">
+                      {heroSpots} members × ${heroContribution}
+                    </span>
                   </div>
                   <div>
-                    <span className="text-[11px] text-zinc-400">Estimated Gas Fee</span>
-                    <p className="text-lg sm:text-xl font-extrabold text-cyan-400 font-mono mt-0.5">~$0.005</p>
-                    <span className="text-[10px] text-zinc-400">Native USDC Gas</span>
+                    <span className="text-[11px] text-zinc-400 font-medium">Network Gas Cost</span>
+                    <p className="text-lg font-bold text-emerald-400 font-mono tabular-nums mt-0.5">~$0.005</p>
+                    <span className="text-[10px] text-zinc-400">Paid directly in USDC</span>
                   </div>
                 </div>
 
-                {/* Turn Timeline Preview */}
+                {/* Queue Rotation Ledger */}
                 <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-zinc-400">
-                    <span>Queue Rotation</span>
-                    <span className="text-emerald-400 font-medium">
-                      {heroVault ? `${heroVault.memberCount.toString()}/${heroSpots} Enrolled On-Chain` : 'Verified On-Chain'}
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-zinc-400 font-medium">FIFO Queue Schedule</span>
+                    <span className="text-zinc-400 font-mono text-[11px]">
+                      {heroVault ? `${heroVault.memberCount.toString()} Enrolled` : '5 Enrolled'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <div className="flex-1 min-w-0 rounded-xl bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 border border-emerald-400/50 p-2 sm:p-2.5 text-center shadow-lg shadow-emerald-500/10">
-                      <span className="block text-[9px] sm:text-[10px] text-emerald-300 font-semibold truncate">Turn #1</span>
-                      <span className="block font-mono text-[11px] sm:text-xs text-emerald-300 font-bold truncate">{heroSpot1}</span>
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400 font-mono">
+                          TURN 1
+                        </span>
+                        <span className="font-mono text-emerald-300 text-xs">{heroSpot1}</span>
+                      </div>
+                      <span className="text-[10px] font-semibold text-emerald-400">Current Payout</span>
                     </div>
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
-                    <div className="flex-1 min-w-0 rounded-xl bg-white/[0.03] border border-white/[0.06] p-2 sm:p-2.5 text-center">
-                      <span className="block text-[9px] sm:text-[10px] text-zinc-400 truncate">Spot #2</span>
-                      <span className="block font-mono text-[11px] sm:text-xs text-zinc-400 truncate">{heroSpot2}</span>
+
+                    <div className="flex items-center justify-between rounded-lg bg-zinc-900/60 border border-zinc-800/60 px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400 font-mono">
+                          TURN 2
+                        </span>
+                        <span className="font-mono text-zinc-300 text-xs">{heroSpot2}</span>
+                      </div>
+                      <span className="text-[10px] text-zinc-400">Next in Rotation</span>
                     </div>
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
-                    <div className="flex-1 min-w-0 rounded-xl bg-white/[0.03] border border-white/[0.06] p-2 sm:p-2.5 text-center">
-                      <span className="block text-[9px] sm:text-[10px] text-zinc-400 truncate">Spot #3</span>
-                      <span className="block font-mono text-[11px] sm:text-xs text-zinc-400 truncate">{heroSpot3}</span>
+
+                    <div className="flex items-center justify-between rounded-lg bg-zinc-900/60 border border-zinc-800/60 px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400 font-mono">
+                          TURN 3
+                        </span>
+                        <span className="font-mono text-zinc-300 text-xs">{heroSpot3}</span>
+                      </div>
+                      <span className="text-[10px] text-zinc-400">Upcoming</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-2 sm:pt-3">
+                {/* Primary Action Button */}
+                <div className="pt-2">
                   <Link
                     href={`/vault/${heroAddress}`}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-2.5 text-xs font-semibold text-black hover:opacity-95 transition-all shadow-md shadow-emerald-500/20"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 hover:bg-white text-zinc-900 py-2.5 text-xs font-semibold transition-all shadow-sm"
                   >
-                    <span>Enter Live Showcase Vault</span>
+                    <span>View Showcase Circle Ledger</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
@@ -232,159 +290,153 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 3 Core Technical Edges Section */}
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:py-16 sm:px-6 lg:px-8 border-t border-white/[0.08]">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Architectural Advantage</span>
-          <h2 className="mt-2 text-3xl font-extrabold text-white">
-            Built Specifically for Arc Mainnet
+      {/* Protocol Architecture: 4 Core Pillars */}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 border-t border-zinc-800/80">
+        <div className="max-w-2xl mb-12">
+          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+            System Architecture
+          </p>
+          <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            Engineered for Precision Capital Formation
           </h2>
           <p className="mt-2 text-sm text-zinc-400">
-            Frictionless collaborative finance with sub-cent gas fees and instant settlement.
+            Combining traditional community rotating credit with cryptographic finality on Arc Mainnet.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           
-          {/* Edge 1 */}
-          <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-6 space-y-3 hover:border-emerald-500/30 transition-all">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-              <Coins className="h-5 w-5" />
+          {/* Pillar 1 */}
+          <div className="rounded-2xl border border-zinc-800/80 bg-[#0e0e12] p-5 space-y-3 hover:border-zinc-700 transition-all">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800 text-zinc-200">
+              <RefreshCw className="h-4 w-4" />
             </div>
-            <h3 className="text-base font-bold text-white">Native USDC Gas Token</h3>
+            <h3 className="text-sm font-semibold text-white">Deterministic FIFO Queues</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              USDC is the protocol-level gas token on Arc. Deposits and ~$0.005 network fees are 100% dollar-denominated with zero token bridging.
+              Member payout order is set upon enrollment in an immutable FIFO state machine. Eliminates treasurer bias, embezzlement, and subjective delays.
             </p>
           </div>
 
-          {/* Edge 2 */}
-          <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-6 space-y-3 hover:border-cyan-500/30 transition-all">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-              <RefreshCw className="h-5 w-5" />
+          {/* Pillar 2 */}
+          <div className="rounded-2xl border border-zinc-800/80 bg-[#0e0e12] p-5 space-y-3 hover:border-zinc-700 transition-all">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800 text-emerald-400">
+              <Coins className="h-4 w-4" />
             </div>
-            <h3 className="text-base font-bold text-white">Automated State Machine</h3>
+            <h3 className="text-sm font-semibold text-white">Native USDC Gas Economics</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Eliminates treasurer fraud. Member queues are immutable FIFO state machines with deterministic, instant payouts every cycle.
+              Arc uses USDC as its native gas token. Contributions and sub-cent network transactions are calculated in real dollars with zero volatile gas slippage.
             </p>
           </div>
 
-          {/* Edge 3 */}
-          <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-6 space-y-3 hover:border-amber-500/30 transition-all">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-              <Zap className="h-5 w-5" />
+          {/* Pillar 3 */}
+          <div className="rounded-2xl border border-zinc-800/80 bg-[#0e0e12] p-5 space-y-3 hover:border-zinc-700 transition-all">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800 text-cyan-400">
+              <Sliders className="h-4 w-4" />
             </div>
-            <h3 className="text-base font-bold text-white">Sub-Second Finality</h3>
+            <h3 className="text-sm font-semibold text-white">Emergency Credit & Bidding</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Transactions settle in fractions of a second with deterministic finality on Arc Mainnet, eliminating confirmation lag.
+              Participants can access liquidity advances up to 75% of pot size or place discount bids to accelerate their payout turn in emergency scenarios.
+            </p>
+          </div>
+
+          {/* Pillar 4 */}
+          <div className="rounded-2xl border border-zinc-800/80 bg-[#0e0e12] p-5 space-y-3 hover:border-zinc-700 transition-all">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800 text-zinc-200">
+              <TrendingUp className="h-4 w-4" />
+            </div>
+            <h3 className="text-sm font-semibold text-white">Float Yield Optimization</h3>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Idle pool balances generate automated yield during cycle intervals, accumulating additional cooperative buffer for the group.
             </p>
           </div>
 
         </div>
       </section>
 
-      {/* Modern 3-Column Comparative Feature Breakdown */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 border-t border-white/[0.08]">
-        <div className="text-center max-w-2xl mx-auto mb-10">
-          <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Comparison</span>
-          <h2 className="mt-2 text-2xl sm:text-3xl font-extrabold text-white">
-            The Savings Paradigm Evolution
+      {/* Institutional Comparison Table */}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 border-t border-zinc-800/80">
+        <div className="max-w-2xl mb-10">
+          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+            Mechanism Comparison
+          </p>
+          <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            How GScoop Upgrades Collaborative Savings
           </h2>
-          <p className="mt-2 text-xs text-zinc-400">
-            Why smart contract cooperatives on Arc outperform offline groups and legacy dApps.
+          <p className="mt-2 text-sm text-zinc-400">
+            Comparing informal peer groups and traditional dApps against Arc-native collaborative contracts.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Traditional */}
-          <div className="rounded-2xl border border-white/[0.08] bg-[#101014] p-6 space-y-4">
-            <div className="inline-flex rounded-full bg-rose-500/10 border border-rose-500/20 px-3 py-1 text-xs font-bold text-rose-400">
-              Traditional Savings Groups
-            </div>
-            <ul className="space-y-3 text-xs text-zinc-400">
-              <li className="flex items-start gap-2">
-                <span className="text-rose-400 font-bold">✕</span>
-                <span>Human organizer theft and default risks</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-rose-400 font-bold">✕</span>
-                <span>Manual cash handling or high bank transfer fees</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-rose-400 font-bold">✕</span>
-                <span>Idle funds earn zero interest</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-rose-400 font-bold">✕</span>
-                <span>Hard capped at 5-10 members due to bookkeeping</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Standard Web3 */}
-          <div className="rounded-2xl border border-white/[0.08] bg-[#101014] p-6 space-y-4">
-            <div className="inline-flex rounded-full bg-amber-500/10 border border-amber-500/20 px-3 py-1 text-xs font-bold text-amber-400">
-              Standard Web3 dApps
-            </div>
-            <ul className="space-y-3 text-xs text-zinc-400">
-              <li className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold">✕</span>
-                <span>Must acquire ETH, bridge tokens, and calculate gwei</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold">✕</span>
-                <span>Volatile gas spikes make small deposits uneconomical</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold">✕</span>
-                <span>15-60 second block wait times</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold">✕</span>
-                <span>Complex UX alienates non-crypto users</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* GScoop on Arc */}
-          <div className="relative rounded-2xl border border-emerald-500/40 bg-gradient-to-b from-emerald-950/20 to-[#121216] p-6 space-y-4 shadow-xl shadow-emerald-500/5">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-xs font-bold text-emerald-300">
-              <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-              <span>GScoop on Arc Mainnet</span>
-            </div>
-            <ul className="space-y-3 text-xs text-zinc-200">
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span><strong>Native USDC Gas</strong> — Deposit & pay fees in pure USDC</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span><strong>Sub-Second Finality</strong> — Immediate pot settlements</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span><strong>5.2% Float Yield</strong> — Idle funds earn interest</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span><strong>Turn Borrowing</strong> — Borrow up to 75% before your turn</span>
-              </li>
-            </ul>
-          </div>
+        <div className="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-[#0e0e12]">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-zinc-800 bg-zinc-900/60 text-zinc-400">
+                <th className="py-3.5 px-4 font-medium">Dimension</th>
+                <th className="py-3.5 px-4 font-medium">Informal Offline Groups</th>
+                <th className="py-3.5 px-4 font-medium">Legacy Web3 dApps</th>
+                <th className="py-3.5 px-4 font-semibold text-white bg-emerald-500/5">GScoop on Arc Mainnet</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800/60 text-zinc-300">
+              <tr>
+                <td className="py-3.5 px-4 font-medium text-white">Custody & Governance</td>
+                <td className="py-3.5 px-4 text-zinc-400">Manual treasurer risk, physical cash loss</td>
+                <td className="py-3.5 px-4 text-zinc-400">Multi-sig or rigid single-vault contracts</td>
+                <td className="py-3.5 px-4 text-emerald-400 font-medium bg-emerald-500/5">
+                  100% Non-custodial FIFO state machine
+                </td>
+              </tr>
+              <tr>
+                <td className="py-3.5 px-4 font-medium text-white">Gas & Network Fees</td>
+                <td className="py-3.5 px-4 text-zinc-400">Bank wire fees, cash conversion fees</td>
+                <td className="py-3.5 px-4 text-zinc-400">Volatile ETH gas ($2 – $25/tx spikes)</td>
+                <td className="py-3.5 px-4 text-emerald-400 font-medium bg-emerald-500/5">
+                  Native USDC gas (~$0.005/tx)
+                </td>
+              </tr>
+              <tr>
+                <td className="py-3.5 px-4 font-medium text-white">Settlement Latency</td>
+                <td className="py-3.5 px-4 text-zinc-400">1 – 3 business days per cycle</td>
+                <td className="py-3.5 px-4 text-zinc-400">15 – 60 seconds block confirmation</td>
+                <td className="py-3.5 px-4 text-emerald-400 font-medium bg-emerald-500/5">
+                  Sub-second deterministic finality
+                </td>
+              </tr>
+              <tr>
+                <td className="py-3.5 px-4 font-medium text-white">Capital Efficiency</td>
+                <td className="py-3.5 px-4 text-zinc-400">0% yield on idle deposits</td>
+                <td className="py-3.5 px-4 text-zinc-400">Complex LP farming, impermanent loss</td>
+                <td className="py-3.5 px-4 text-emerald-400 font-medium bg-emerald-500/5">
+                  Automated 5.2% float yield integration
+                </td>
+              </tr>
+              <tr>
+                <td className="py-3.5 px-4 font-medium text-white">Liquidity Access</td>
+                <td className="py-3.5 px-4 text-zinc-400">Strictly locked until allocated turn</td>
+                <td className="py-3.5 px-4 text-zinc-400">Penalty slash for early exit</td>
+                <td className="py-3.5 px-4 text-emerald-400 font-medium bg-emerald-500/5">
+                  75% advance facility + turn bidding
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
       {/* Featured Pools Preview */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 border-t border-white/[0.08]">
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 border-t border-zinc-800/80">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div>
-            <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Live on Arc</span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">Active Cooperative Vaults</h2>
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+              Verified Registry
+            </p>
+            <h2 className="text-2xl font-bold text-white mt-1">Active Cooperative Circles</h2>
           </div>
           <Link
             href="/explore"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-300 hover:text-white transition-colors"
           >
-            <span>View all pools</span>
+            <span>Browse all pools</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -396,22 +448,22 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Deploy CTA Banner */}
+      {/* Deploy Contract CTA Banner */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="relative rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-[#121216] to-cyan-950/30 p-8 sm:p-12 shadow-2xl overflow-hidden text-center sm:text-left">
-          <div className="relative z-10 max-w-2xl space-y-4">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-              Ready to launch your community savings circle?
+        <div className="relative rounded-2xl border border-zinc-800 bg-[#0e0e12] p-8 sm:p-12 shadow-xl text-center sm:text-left">
+          <div className="max-w-2xl space-y-4">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+              Ready to deploy a cooperative circle?
             </h2>
-            <p className="text-sm text-zinc-300 leading-relaxed">
-              Deploy a customizable GScoop vault on Arc Mainnet in less than 30 seconds. Choose contribution amounts, cycle durations, and invite your circle.
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              Launch an immutable savings pool on Arc Mainnet in under 30 seconds. Set contribution amounts, cycle durations, member limits, and invite your circle.
             </p>
             <div className="pt-2">
               <Link
                 href="/create"
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-6 py-3.5 text-sm font-semibold text-black shadow-lg shadow-emerald-400/20 hover:bg-emerald-300 transition-all"
+                className="inline-flex items-center gap-2 rounded-xl bg-white text-zinc-950 px-5 py-3 text-xs sm:text-sm font-semibold hover:bg-zinc-200 transition-all shadow-sm"
               >
-                <span>Deploy Vault on Arc</span>
+                <span>Deploy Circle on Arc</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>

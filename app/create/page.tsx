@@ -169,20 +169,22 @@ export default function CreateVaultPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:py-12 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:py-12 sm:px-6 lg:px-8">
       
       {/* Header */}
       <div className="max-w-2xl mb-6 sm:mb-8">
-        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-0.5 text-[11px] sm:text-xs font-semibold text-emerald-400 mb-2">
-          <Layers className="h-3.5 w-3.5" />
+        <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/90 px-3 py-0.5 text-xs text-zinc-300 mb-2.5">
+          <Layers className="h-3.5 w-3.5 text-zinc-400" />
           <span>GScoop Factory V1</span>
+          <span className="text-zinc-600">•</span>
+          <span className="font-mono text-zinc-400">Arc Mainnet</span>
         </div>
-        <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-          Deploy a Cooperative Vault
+        <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+          Deploy a Cooperative Circle
         </h1>
-        <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed">
+        <p className="mt-1.5 text-xs sm:text-sm text-zinc-400 leading-relaxed">
           Configure an immutable rotating savings circle on Arc Mainnet. 
-          Zero separate gas token required—fees are fractions of a cent paid directly in native USDC.
+          Zero separate gas token required—transaction fees are fractions of a cent paid directly in native USDC.
         </p>
       </div>
 
@@ -190,11 +192,11 @@ export default function CreateVaultPage() {
         
         {/* Left: Interactive Creation Form */}
         <div className="lg:col-span-7">
-          <form onSubmit={handleDeploy} className="space-y-5 sm:space-y-6 rounded-2xl sm:rounded-3xl border border-white/[0.08] bg-[#121215] p-4 sm:p-8 shadow-xl">
+          <form onSubmit={handleDeploy} className="space-y-5 sm:space-y-6 rounded-2xl border border-zinc-800/80 bg-[#0e0e12] p-5 sm:p-8 shadow-xl">
             
             {/* Wrong Network Warning Banner */}
             {isWrongNetwork && (
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <AlertCircle className="h-5 w-5 text-amber-400 shrink-0" />
                   <div>
@@ -238,7 +240,7 @@ export default function CreateVaultPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Lagos Tech Innovators Circle"
-                className="w-full rounded-xl border border-white/[0.1] bg-[#0c0c0e] px-4 py-3 text-sm text-white placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+                className="w-full rounded-xl border border-zinc-800 bg-[#09090c] px-4 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-700 transition-all"
               />
             </div>
 
@@ -252,7 +254,7 @@ export default function CreateVaultPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Short description of this savings group, rules, or community target..."
-                className="w-full rounded-xl border border-white/[0.1] bg-[#0c0c0e] px-4 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+                className="w-full rounded-xl border border-zinc-800 bg-[#09090c] px-4 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-700 transition-all"
               />
             </div>
 
@@ -262,7 +264,7 @@ export default function CreateVaultPage() {
                 <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
                   Contribution per Cycle (Native USDC) *
                 </label>
-                <span className="text-[11px] text-emerald-400 font-mono">18 decimals</span>
+                <span className="text-[11px] text-zinc-400 font-mono">18 decimals</span>
               </div>
 
               <div className="relative">
@@ -274,7 +276,7 @@ export default function CreateVaultPage() {
                   required
                   value={contribution}
                   onChange={(e) => setContribution(e.target.value)}
-                  className="w-full rounded-xl border border-white/[0.1] bg-[#0c0c0e] pl-8 pr-16 py-3 text-sm font-mono text-white placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+                  className="w-full rounded-xl border border-zinc-800 bg-[#09090c] pl-8 pr-16 py-2.5 text-sm font-mono text-white placeholder:text-zinc-500 focus:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-700 transition-all"
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-zinc-400">
                   USDC
@@ -291,8 +293,8 @@ export default function CreateVaultPage() {
                     onClick={() => setContribution(amt)}
                     className={`rounded-lg px-2.5 py-1 text-xs font-mono font-medium border transition-all ${
                       contribution === amt
-                        ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                        : 'border-white/[0.08] bg-white/[0.02] text-zinc-400 hover:text-white'
+                        ? 'border-zinc-700 bg-zinc-800 text-white font-semibold'
+                        : 'border-zinc-800/80 bg-[#09090c] text-zinc-400 hover:text-white'
                     }`}
                   >
                     ${amt}
@@ -314,11 +316,11 @@ export default function CreateVaultPage() {
                     onClick={() => setCycleDuration(preset.seconds)}
                     className={`rounded-xl p-3 text-left border transition-all ${
                       cycleDuration === preset.seconds
-                        ? 'border-emerald-500 bg-emerald-500/15 text-white shadow-md shadow-emerald-500/10'
-                        : 'border-white/[0.08] bg-[#0c0c0e] text-zinc-400 hover:text-white hover:border-white/20'
+                        ? 'border-emerald-500/50 bg-emerald-500/10 text-white shadow-sm'
+                        : 'border-zinc-800/80 bg-[#09090c] text-zinc-400 hover:text-white hover:border-zinc-700'
                     }`}
                   >
-                    <p className="text-xs font-bold text-zinc-200">{preset.label}</p>
+                    <p className="text-xs font-semibold text-zinc-200">{preset.label}</p>
                     <p className="text-[10px] text-zinc-400 mt-0.5 font-mono">
                       Payout every {Math.round(preset.seconds / 86400)}d
                     </p>
@@ -481,11 +483,11 @@ export default function CreateVaultPage() {
             </div>
 
             {/* Zero Gas Friction Notice */}
-            <div className="rounded-2xl bg-emerald-950/20 border border-emerald-500/20 p-3.5 flex items-center gap-3">
+            <div className="rounded-xl bg-zinc-900/60 border border-zinc-800/80 p-3.5 flex items-center gap-3">
               <Zap className="h-4 w-4 text-emerald-400 shrink-0" />
               <div className="text-xs text-zinc-300">
                 <span>Arc Mainnet: Estimated deployment fee is </span>
-                <strong className="text-emerald-400">~$0.008 USDC</strong>
+                <strong className="text-emerald-400 font-mono tabular-nums">~$0.008 USDC</strong>
                 <span className="text-zinc-400">. Deducted directly in USDC with zero token bridging.</span>
               </div>
             </div>
@@ -494,7 +496,7 @@ export default function CreateVaultPage() {
             <button
               type="submit"
               disabled={isDeploying || !name.trim() || numContribution <= 0}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-4 text-sm font-bold text-black shadow-lg shadow-emerald-500/25 hover:opacity-95 disabled:opacity-50 transition-all cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 py-3.5 text-xs sm:text-sm font-semibold shadow-sm disabled:opacity-50 transition-all cursor-pointer"
             >
               {isDeploying ? (
                 <>
@@ -505,13 +507,13 @@ export default function CreateVaultPage() {
                 </>
               ) : isWrongNetwork ? (
                 <>
-                  <Sparkles className="h-4 w-4" />
+                  <AlertCircle className="h-4 w-4" />
                   <span>Switch Network & Deploy Cooperative</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-4 w-4" />
-                  <span>Deploy Cooperative Vault</span>
+                  <Layers className="h-4 w-4" />
+                  <span>Deploy Cooperative Circle Contract</span>
                 </>
               )}
             </button>
@@ -520,12 +522,12 @@ export default function CreateVaultPage() {
 
         {/* Right: Live Preview & Summary Card */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="rounded-3xl border border-white/[0.1] bg-[#121215] p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+          <div className="rounded-2xl border border-zinc-800/80 bg-[#0e0e12] p-5 sm:p-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
               <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                Live Vault Preview
+                Live Circle Preview
               </span>
-              <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono text-emerald-400 border border-emerald-500/20">
+              <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-[10px] font-mono text-emerald-400 border border-zinc-700/60">
                 Arc Deterministic
               </span>
             </div>
@@ -533,7 +535,7 @@ export default function CreateVaultPage() {
             {/* Visual Preview */}
             <div className="mt-5 space-y-4">
               <div>
-                <h3 className="text-xl font-bold text-white truncate">
+                <h3 className="text-lg font-bold text-white truncate">
                   {name.trim() || 'Unnamed Cooperative'}
                 </h3>
                 <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
@@ -541,16 +543,16 @@ export default function CreateVaultPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 rounded-xl bg-black/40 p-4 border border-white/[0.06]">
+              <div className="grid grid-cols-2 gap-3 rounded-xl bg-black/40 p-3.5 border border-zinc-800/80">
                 <div>
-                  <span className="text-[11px] text-zinc-400">Cycle Contribution</span>
-                  <p className="text-lg font-bold text-emerald-400 font-mono mt-0.5">
+                  <span className="text-[11px] text-zinc-400 font-medium">Cycle Contribution</span>
+                  <p className="text-base font-bold text-white font-mono tabular-nums mt-0.5">
                     ${numContribution.toFixed(2)} <span className="text-xs text-zinc-400">USDC</span>
                   </p>
                 </div>
                 <div>
-                  <span className="text-[11px] text-zinc-400">Total Pot / Cycle</span>
-                  <p className="text-lg font-bold text-cyan-400 font-mono mt-0.5">
+                  <span className="text-[11px] text-zinc-400 font-medium">Target Pot / Cycle</span>
+                  <p className="text-base font-bold text-emerald-400 font-mono tabular-nums mt-0.5">
                     {maxMembers > 0 ? (
                       <>${totalPot.toFixed(2)} <span className="text-xs text-zinc-400">USDC</span></>
                     ) : (
@@ -613,21 +615,21 @@ export default function CreateVaultPage() {
       {/* Success Modal */}
       {deployedVault && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-3xl border border-emerald-500/40 bg-[#121216] p-6 sm:p-8 shadow-2xl text-center space-y-5">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              <CheckCircle2 className="h-8 w-8" />
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-[#101014] p-6 sm:p-8 shadow-2xl text-center space-y-5">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+              <CheckCircle2 className="h-7 w-7" />
             </div>
 
-            <div className="space-y-2">
-              <h3 className="text-2xl font-bold text-white">Vault Deployed!</h3>
+            <div className="space-y-1.5">
+              <h3 className="text-xl font-bold text-white tracking-tight">Circle Contract Deployed</h3>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                Your cooperative savings vault <strong className="text-white">"{deployedVault.name}"</strong> is live on Arc Mainnet with sub-second finality.
+                Your cooperative savings circle <strong className="text-white">"{deployedVault.name}"</strong> is live on Arc Mainnet with sub-second finality.
               </p>
             </div>
 
-            <div className="rounded-2xl bg-black/50 p-4 border border-white/[0.06] text-left text-xs space-y-2 font-mono">
+            <div className="rounded-xl bg-black/50 p-4 border border-zinc-800/80 text-left text-xs space-y-2 font-mono">
               <div className="flex justify-between">
-                <span className="text-zinc-400">Address:</span>
+                <span className="text-zinc-400">Contract:</span>
                 <span className="text-emerald-400 truncate max-w-[200px]">{deployedVault.address}</span>
               </div>
               <div className="flex justify-between">
@@ -636,16 +638,16 @@ export default function CreateVaultPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-400">Network:</span>
-                <span className="text-cyan-400">Arc (5042)</span>
+                <span className="text-emerald-400">Arc (5042)</span>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2.5 pt-2">
+            <div className="flex flex-col gap-2.5 pt-1">
               <button
                 onClick={() => router.push(`/vault/${deployedVault.address}`)}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-3 text-xs font-bold text-black shadow-lg shadow-emerald-500/20 hover:opacity-95 transition-all"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 py-3 text-xs font-semibold shadow-sm transition-all"
               >
-                <span>Enter Vault Dashboard</span>
+                <span>Enter Circle Dashboard</span>
                 <ArrowRight className="h-4 w-4" />
               </button>
 
@@ -653,7 +655,7 @@ export default function CreateVaultPage() {
                 onClick={() => setDeployedVault(null)}
                 className="text-xs text-zinc-400 hover:text-white transition-colors py-1"
               >
-                Deploy Another
+                Deploy Another Circle
               </button>
             </div>
           </div>

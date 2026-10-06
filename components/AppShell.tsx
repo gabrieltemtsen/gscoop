@@ -23,13 +23,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="hidden md:block fixed bottom-6 right-6 z-40">
         <button
           onClick={() => setAiModalOpen(true)}
-          className="group flex items-center gap-2.5 rounded-full border border-cyan-500/30 bg-[#121216]/90 px-4 py-2.5 text-xs font-semibold text-cyan-300 shadow-2xl backdrop-blur-xl hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-white hover:scale-105 transition-all duration-200"
+          className="group flex items-center gap-2 rounded-full border border-zinc-800 bg-[#121216]/95 px-3.5 py-2 text-xs font-medium text-zinc-300 shadow-xl backdrop-blur-xl hover:border-zinc-700 hover:text-white hover:bg-zinc-800/90 transition-all duration-200"
         >
-          <div className="relative flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-300 group-hover:bg-cyan-500 group-hover:text-black transition-colors">
-            <Bot className="h-3.5 w-3.5" />
-            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-800 text-zinc-300 group-hover:text-emerald-400 transition-colors">
+            <Bot className="h-3 w-3" />
           </div>
-          <span>Ask Coop AI</span>
+          <span>Coop AI Assistant</span>
         </button>
       </div>
 

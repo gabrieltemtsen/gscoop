@@ -978,37 +978,35 @@ export default function VaultDashboardPage() {
       )}
 
       {/* Vault Header Card */}
-      <div className="rounded-2xl sm:rounded-3xl border border-white/[0.1] bg-[#121215] p-4 sm:p-8 shadow-2xl relative overflow-hidden">
-        <div className="pointer-events-none absolute -top-20 -right-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
-
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 sm:gap-6">
-          <div className="space-y-2">
+      <div className="rounded-2xl border border-zinc-800/80 bg-[#0e0e12] p-5 sm:p-7 shadow-lg relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-5 sm:gap-6">
+          <div className="space-y-2.5">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl sm:text-3xl font-extrabold text-white">{vault.name}</h1>
-              <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">{vault.name}</h1>
+              <span className="rounded-full bg-zinc-800 border border-zinc-700/60 px-2.5 py-0.5 text-xs font-semibold text-zinc-200">
                 Cycle #{vault.currentCycle.toString()}
               </span>
               {vault.yieldEnabled && (
-                <span className="rounded-full bg-cyan-500/10 border border-cyan-500/25 px-2.5 py-0.5 text-xs font-semibold text-cyan-300 flex items-center gap-1">
+                <span className="rounded-full bg-zinc-800 border border-zinc-700/60 px-2.5 py-0.5 text-xs font-medium text-emerald-400 flex items-center gap-1">
                   <Zap className="h-3 w-3" />
                   <span>{vault.yieldApy || 5.2}% APY Float</span>
                 </span>
               )}
               {isPayoutReady && (
-                <span className="rounded-full bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+                <span className="rounded-full bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 text-xs font-medium text-amber-300">
                   Ready for Payout
                 </span>
               )}
             </div>
 
             <p className="text-xs sm:text-sm text-zinc-400 max-w-2xl leading-relaxed">
-              {vault.description}
+              {vault.description || 'Decentralized rotating savings cooperative operating on Arc Mainnet.'}
             </p>
 
             {/* Address & Explorer Link */}
-            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 pt-1 sm:pt-2 text-xs font-mono text-zinc-400">
-              <span className="flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-lg border border-white/[0.06]">
-                <span>Vault: {formatAddress(vault.address, 6)}</span>
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 pt-1 text-xs font-mono text-zinc-400">
+              <span className="flex items-center gap-1.5 bg-[#09090c] px-2.5 py-1 rounded-lg border border-zinc-800/80">
+                <span>Contract: {formatAddress(vault.address, 6)}</span>
                 <button onClick={handleCopy} className="hover:text-white transition-colors" title="Copy address">
                   {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                 </button>
@@ -1018,23 +1016,24 @@ export default function VaultDashboardPage() {
                 href={`https://explorer.arc.io/address/${vault.address}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 transition-colors"
+                className="inline-flex items-center gap-1 text-zinc-300 hover:text-white transition-colors"
               >
                 <span>Arc Explorer</span>
-                <ExternalLink className="h-3.5 w-3.5" />
+                <ExternalLink className="h-3 w-3" />
               </a>
 
-              <span className="hidden sm:inline text-zinc-500">|</span>
-              <span className="text-zinc-400">Created {new Date(vault.createdAt).toLocaleDateString()}</span>
+              <span className="hidden sm:inline text-zinc-600">•</span>
+              <span className="text-zinc-500">Created {new Date(vault.createdAt).toLocaleDateString()}</span>
             </div>
           </div>
 
           {/* Quick Metrics */}
           <div className="flex flex-wrap md:flex-col gap-3">
-            <div className="rounded-2xl bg-black/50 border border-white/[0.08] p-3.5 sm:p-4 text-left sm:text-right flex-1 md:flex-initial">
-              <span className="text-[11px] text-zinc-400 uppercase tracking-wider">Active Cycle Pot</span>
-              <p className="text-xl sm:text-3xl font-extrabold text-emerald-400 font-mono mt-0.5">
-                ${formatUSDC(vault.balance)}
+            <div className="rounded-xl bg-black/40 border border-zinc-800/80 p-3.5 sm:p-4 text-left md:text-right flex-1 md:flex-initial">
+              <span className="text-[11px] text-zinc-400 font-medium uppercase tracking-wider">Active Cycle Pot</span>
+              <p className="text-xl sm:text-2xl font-bold text-white font-mono tabular-nums mt-0.5">
+                ${formatUSDC(vault.balance)}{' '}
+                <span className="text-xs font-normal text-zinc-400">USDC</span>
               </p>
               <span className="text-[10px] text-zinc-400">
                 {vault.cycleDeposits.toString()} of {vault.memberCount.toString()} members paid
@@ -1042,9 +1041,9 @@ export default function VaultDashboardPage() {
             </div>
 
             {vault.reserveFund > BigInt(0) && (
-              <div className="rounded-2xl bg-cyan-950/20 border border-cyan-500/20 p-3 text-left sm:text-right flex-1 md:flex-initial">
-                <span className="text-[10px] text-cyan-300 uppercase tracking-wider">Reserve & Credit Fund</span>
-                <p className="text-lg font-bold text-cyan-400 font-mono">
+              <div className="rounded-xl bg-zinc-900/60 border border-zinc-800/80 p-3 text-left md:text-right flex-1 md:flex-initial">
+                <span className="text-[10px] text-zinc-400 uppercase tracking-wider">Reserve Facility</span>
+                <p className="text-base font-bold text-cyan-400 font-mono tabular-nums">
                   ${formatUSDC(vault.reserveFund)} USDC
                 </p>
               </div>
