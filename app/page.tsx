@@ -24,6 +24,7 @@ import { fetchAllOnChainVaults, SHOWCASE_VAULT_ADDRESS } from '@/lib/onChainVaul
 import { FACTORY_ADDRESS } from '@/lib/contracts';
 import { formatAddress, formatUSDC } from '@/lib/utils';
 import { VaultCard } from '@/components/VaultCard';
+import { SavingsCalculator } from '@/components/SavingsCalculator';
 import { useEffect, useState } from 'react';
 
 export default function Home() {
@@ -421,6 +422,11 @@ export default function Home() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      {/* Interactive Savings & Rotation Simulator Section */}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 border-t border-zinc-800/80">
+        <SavingsCalculator />
       </section>
 
       {/* Featured Pools Preview */}

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useChainId, useSwitchChain } from 'wagmi';
 import { parseUnits, parseEventLogs } from 'viem';
 import { FACTORY_ADDRESS, GSCOOP_FACTORY_ABI } from '@/lib/contracts';
@@ -38,8 +38,9 @@ const DURATION_PRESETS = [
 const CONTRIBUTION_PRESETS = ['10', '25', '50', '100', '250'];
 const MEMBER_PRESETS = [5, 10, 25, 50, 100];
 
-export default function CreateVaultPage() {
+function CreateVaultForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
@@ -55,6 +56,33 @@ export default function CreateVaultPage() {
   const [enableYield, setEnableYield] = useState(true);
   const [enableCredit, setEnableCredit] = useState(true);
   const [enableAuction, setEnableAuction] = useState(true);
+
+  // Prefill from Simulator / URL Query Parameters
+  useEffect(() => {
+    if (!searchParams) return;
+    const pContribution = searchParams.get('contribution');
+    const pMembers = searchParams.get('members');
+    const pCadence = searchParams.get('cadence');
+
+    if (pContribution) {
+      setContribution(pContribution);
+    }
+    if (pMembers) {
+      const parsedMembers = parseInt(pMembers, 10);
+      if (!isNaN(parsedMembers) && parsedMembers >= 2) {
+        setMaxMembers(parsedMembers);
+        if (!MEMBER_PRESETS.includes(parsedMembers)) {
+          setIsCustomMember(true);
+        }
+      }
+    }
+    if (pCadence) {
+      if (pCadence === 'daily') setCycleDuration(86400);
+      else if (pCadence === 'weekly') setCycleDuration(7 * 86400);
+      else if (pCadence === 'biweekly') setCycleDuration(14 * 86400);
+      else if (pCadence === 'monthly') setCycleDuration(30 * 86400);
+    }
+  }, [searchParams]);
 
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployedVault, setDeployedVault] = useState<CoopVaultData | null>(null);
@@ -663,5 +691,18 @@ export default function CreateVaultPage() {
       )}
 
     </div>
+  );
+}
+
+export default function CreateVaultPage() {
+  return (
+    <Suspense fallback={
+      <div className="mx-auto max-w-4xl px-4 py-16 text-center">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
+        <p className="mt-4 text-xs font-medium text-zinc-400">Loading circle creator...</p>
+      </div>
+    }>
+      <CreateVaultForm />
+    </Suspense>
   );
 }

@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useAccount } from 'wagmi';
 import { CoopVaultData } from '@/lib/vaultStore';
 import { formatAddress, formatDuration, formatTimeRemaining, formatUSDC } from '@/lib/utils';
-import { Clock, Users, ArrowRight, ShieldCheck, Sparkles, CheckCircle2, Zap, Coins } from 'lucide-react';
+import { getGoogleCalendarUrl } from '@/lib/calendar';
+import { ShareModal } from './ShareModal';
+import { Clock, Users, ArrowRight, ShieldCheck, CheckCircle2, Zap, Coins, CalendarPlus, Share2 } from 'lucide-react';
 
 interface VaultCardProps {
   vault: CoopVaultData;
@@ -14,6 +16,7 @@ interface VaultCardProps {
 export function VaultCard({ vault }: VaultCardProps) {
   const { address: userAddress } = useAccount();
   const [timeInfo, setTimeInfo] = useState(() => formatTimeRemaining(vault.cycleDeadline));
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -159,9 +162,35 @@ export function VaultCard({ vault }: VaultCardProps) {
               <Clock className="h-3.5 w-3.5 text-zinc-400" />
               Cycle Deadline:
             </span>
-            <span className={`font-mono text-xs tabular-nums ${timeInfo.isExpired ? 'text-amber-400 font-semibold' : 'text-zinc-300'}`}>
-              {timeInfo.formatted}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className={`font-mono text-xs tabular-nums ${timeInfo.isExpired ? 'text-amber-400 font-semibold' : 'text-zinc-300'}`}>
+                {timeInfo.formatted}
+              </span>
+              {!timeInfo.isExpired && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const url =
+                      typeof window !== 'undefined'
+                        ? `${window.location.origin}/vault/${vault.address}`
+                        : `https://gscoop.xyz/vault/${vault.address}`;
+                    const calUrl = getGoogleCalendarUrl({
+                      vaultName: vault.name,
+                      amountUSDC: formatUSDC(vault.contributionAmount),
+                      deadlineSeconds: Number(vault.cycleDeadline),
+                      vaultUrl: url,
+                    });
+                    window.open(calUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                  title="Add payment deadline to Google Calendar"
+                  className="rounded p-0.5 text-zinc-500 hover:text-emerald-400 transition-colors"
+                >
+                  <CalendarPlus className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center justify-between">
@@ -190,9 +219,25 @@ export function VaultCard({ vault }: VaultCardProps) {
 
       {/* Footer & Action Button */}
       <div className="mt-5 pt-3.5 border-t border-zinc-800/80 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
-          <ShieldCheck className="h-3.5 w-3.5 text-zinc-400" />
-          <span>Non-Custodial</span>
+        <div className="flex items-center gap-2.5 text-[11px]">
+          <div className="flex items-center gap-1 text-zinc-400">
+            <ShieldCheck className="h-3.5 w-3.5 text-zinc-400" />
+            <span>Non-Custodial</span>
+          </div>
+          <span className="text-zinc-600">•</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShareModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1 text-zinc-400 hover:text-zinc-200 transition-colors"
+            title="Invite savers to this circle"
+          >
+            <Share2 className="h-3 w-3 text-zinc-400" />
+            <span>Invite</span>
+          </button>
         </div>
 
         <Link
@@ -207,6 +252,15 @@ export function VaultCard({ vault }: VaultCardProps) {
           <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
+
+      {/* Quick Invite & Share Modal */}
+      <ShareModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        vaultName={vault.name}
+        vaultAddress={vault.address}
+        contributionAmount={formatUSDC(vault.contributionAmount)}
+      />
     </div>
   );
 }

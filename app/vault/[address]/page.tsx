@@ -14,6 +14,9 @@ import { GSCOOP_VAULT_ABI } from '@/lib/contracts';
 import { triggerConfetti } from '@/components/ConfettiCelebration';
 import { useFarcaster } from '@/components/FarcasterProvider';
 import { resolveFarcasterProfiles, FarcasterMemberProfile } from '@/lib/farcasterProfiles';
+import { getGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar';
+import { exportVaultStatementCSV } from '@/lib/exportStatement';
+import { ShareModal } from '@/components/ShareModal';
 import Link from 'next/link';
 import { 
   Clock, 
@@ -38,7 +41,9 @@ import {
   Wallet,
   HandCoins,
   Gavel,
-  BadgeDollarSign
+  BadgeDollarSign,
+  CalendarPlus,
+  FileSpreadsheet
 } from 'lucide-react';
 
 export default function VaultDashboardPage() {
@@ -65,6 +70,7 @@ export default function VaultDashboardPage() {
   const [memberProfiles, setMemberProfiles] = useState<Record<string, FarcasterMemberProfile>>({});
   const [copied, setCopied] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [isDepositing, setIsDepositing] = useState(false);
   const [isDistributing, setIsDistributing] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -919,25 +925,20 @@ export default function VaultDashboardPage() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
-              const url = typeof window !== 'undefined' ? window.location.href : `https://gscoop.xyz/vault/${vault.address}`;
-              shareCast(
-                `Join our "${vault.name}" collaborative USDC savings circle on Arc Mainnet ($${formatUSDC(vault.contributionAmount)} USDC/cycle)!`,
-                url
-              );
-            }}
-            className="flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-purple-300 hover:bg-purple-500/20 transition-all"
-          >
-            <Share2 className="h-3.5 w-3.5 text-purple-400" />
-            <span className="hidden sm:inline">Cast on Farcaster</span>
-            <span className="sm:hidden">Cast</span>
-          </button>
-          <button
-            onClick={handleShare}
+            onClick={() => exportVaultStatementCSV(vault)}
+            title="Download complete rotation financial statement (.csv)"
             className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-[#121215] px-2.5 sm:px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all"
           >
-            {shareCopied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-            <span>{shareCopied ? 'Copied!' : 'Copy Link'}</span>
+            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">Export Statement (.csv)</span>
+            <span className="sm:hidden">Export</span>
+          </button>
+          <button
+            onClick={() => setShareModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-all shadow-sm"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            <span>Invite & Share</span>
           </button>
         </div>
       </div>
@@ -1129,11 +1130,30 @@ export default function VaultDashboardPage() {
                 </p>
               </div>
 
-              <div className="text-right">
-                <span className="font-mono text-lg sm:text-xl font-bold text-white flex items-center gap-1.5">
-                  <Clock className="h-4 w-4 text-emerald-400" />
-                  {timeInfo.formatted}
-                </span>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="text-right">
+                  <span className="font-mono text-lg sm:text-xl font-bold text-white flex items-center gap-1.5">
+                    <Clock className="h-4 w-4 text-emerald-400" />
+                    {timeInfo.formatted}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = typeof window !== 'undefined' ? window.location.href : `https://gscoop.xyz/vault/${vault.address}`;
+                    const calUrl = getGoogleCalendarUrl({
+                      vaultName: vault.name,
+                      amountUSDC: formatUSDC(vault.contributionAmount),
+                      deadlineSeconds: Number(vault.cycleDeadline),
+                      vaultUrl: url,
+                    });
+                    window.open(calUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                  title="Add cycle deadline to Google Calendar"
+                  className="p-1.5 rounded-lg border border-white/[0.08] bg-zinc-900/60 text-zinc-400 hover:text-emerald-400 hover:border-emerald-500/30 transition-all"
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                </button>
               </div>
             </div>
 
@@ -2445,6 +2465,16 @@ export default function VaultDashboardPage() {
         </div>
 
       </div>
+
+      {vault && (
+        <ShareModal
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+          vaultName={vault.name}
+          vaultAddress={vault.address}
+          contributionAmount={formatUSDC(vault.contributionAmount)}
+        />
+      )}
 
     </div>
   );
